@@ -107,7 +107,11 @@ public class DefaultDnsRecordDecoder implements DnsRecordDecoder {
         int position = -1;
         int checked = 0;
         final int end = in.writerIndex();
-        final StringBuilder name = new StringBuilder(in.readableBytes() << 1);
+        int readable = in.readableBytes();
+        if (readable == 0) {
+            return StringUtil.EMPTY_STRING;
+        }
+        final StringBuilder name = new StringBuilder(readable << 1);
         for (int len = in.readUnsignedByte(); in.isReadable() && len != 0; len = in.readUnsignedByte()) {
             boolean pointer = (len & 0xc0) == 0xc0;
             if (pointer) {
