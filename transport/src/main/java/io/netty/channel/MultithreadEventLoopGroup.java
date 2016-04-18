@@ -66,6 +66,12 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     @Override
     protected abstract EventLoop newChild(Executor executor, Object... args) throws Exception;
 
+
+    /**
+     * 从当前EventLoopGroup所管理的Channel中选择一个EventLoop来完成对Channel的注册
+     * @param channel
+     * @return
+     */
     @Override
     public ChannelFuture register(Channel channel) {
         return next().register(channel);

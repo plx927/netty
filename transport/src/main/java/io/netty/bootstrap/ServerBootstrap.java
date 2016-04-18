@@ -146,12 +146,22 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return childGroup;
     }
 
+
+    /**
+     * 对XXServerSocketChannel进行初始化
+     * @param channel
+     * @throws Exception
+     */
     @Override
     void init(Channel channel) throws Exception {
+
+        //获取到ChannelOption，简单理解成配置传输层以及网络层的参数配置
         final Map<ChannelOption<?>, Object> options = options();
+
         synchronized (options) {
             channel.config().setOptions(options);
         }
+
 
         final Map<AttributeKey<?>, Object> attrs = attrs();
         synchronized (attrs) {
@@ -162,6 +172,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
         }
 
+        /*
+         * 获取到Channel的PipeLine,将用户设置的Handler加入到Pipelie的尾部，默认情况下用户是没有设置的
+         * 用户所设置的是ChildHandler
+         */
         ChannelPipeline p = channel.pipeline();
         if (handler() != null) {
             p.addLast(handler());
@@ -178,6 +192,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(childAttrs.size()));
         }
 
+        //创建Server端的Acceptor,该Acceptor也是一个ChannleHanderl的实现
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(Channel ch) throws Exception {
@@ -210,6 +225,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return new Entry[size];
     }
 
+
+    /**
+     * Server端的Acceptor
+     */
     private static class ServerBootstrapAcceptor extends ChannelHandlerAdapter {
 
         private final EventLoopGroup childGroup;
@@ -217,6 +236,14 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         private final Entry<ChannelOption<?>, Object>[] childOptions;
         private final Entry<AttributeKey<?>, Object>[] childAttrs;
 
+
+        /**
+         *
+         * @param childGroup 用户所指定的EventLoopGroup，对EventLoop的管理。
+         * @param childHandler ChannelHandlerInitlizer
+         * @param childOptions
+         * @param childAttrs
+         */
         ServerBootstrapAcceptor(
                 EventLoopGroup childGroup, ChannelHandler childHandler,
                 Entry<ChannelOption<?>, Object>[] childOptions, Entry<AttributeKey<?>, Object>[] childAttrs) {
@@ -226,11 +253,20 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             this.childAttrs = childAttrs;
         }
 
+
+        /**
+         * 当客户端有连接进来，该方法会得到调用，它本质上就是一个Accept方法
+         * @param ctx
+         * @param msg
+         */
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+
+            //这里得到的Channel为xxxSocketChannel
             final Channel child = (Channel) msg;
 
+            //将用户所指定的ChannelHandlerInitlizer添加到Channel的Pipeline中
             child.pipeline().addLast(childHandler);
 
             for (Entry<ChannelOption<?>, Object> e: childOptions) {
@@ -248,6 +284,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
 
             try {
+                /*
+                 * 将客户端的Channel进行注册
+                 * 如果是NioEventLoopGroup,则从它所管理的多个NioEventLoop中选取一个进行注册
+                 * 直接查看MultithreadEventLoopGroup中的register方法
+                 */
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

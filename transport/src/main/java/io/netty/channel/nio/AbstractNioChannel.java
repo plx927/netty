@@ -320,6 +320,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                //对Channel进行注册，但是没有设置该Channel所关注的IO事件
                 selectionKey = javaChannel().register(((NioEventLoop) eventLoop().unwrap()).selector, 0, this);
                 return;
             } catch (CancelledKeyException e) {

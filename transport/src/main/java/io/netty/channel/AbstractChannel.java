@@ -511,6 +511,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+
+                //这里会通过AbstractNioChannel将Channel往Selector中注册
                 doRegister();
                 neverRegistered = false;
                 registered = true;

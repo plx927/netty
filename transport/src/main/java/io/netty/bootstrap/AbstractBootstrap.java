@@ -16,16 +16,7 @@
 
 package io.netty.bootstrap;
 
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPromise;
-import io.netty.channel.DefaultChannelPromise;
-import io.netty.channel.EventLoop;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ReflectiveChannelFactory;
+import io.netty.channel.*;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.GlobalEventExecutor;
@@ -96,6 +87,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (channelClass == null) {
             throw new NullPointerException("channelClass");
         }
+        //设置ChannelFactory,默认使用基于反射的ChannelFactory来完成对Channel的创建
         return channelFactory(new ReflectiveChannelFactory<C>(channelClass));
     }
 
@@ -325,10 +317,28 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    /**
+     * 初始化Channel并且往EventLoop中进行注册
+     * @return
+     */
     final ChannelFuture initAndRegister() {
+
+        /*
+         * 通过ChannelFactory根据指定的Channnel的Class来创建出对应的Channel
+         * 在AbstractBootrap中默认使用了ReflectiveChannelFactory
+         */
         final Channel channel = channelFactory().newChannel();
+
+
         try {
+            /*
+             * 初始化Channel
+             * 由于ServerBootstrap和Bootstrap对于Channel初始化的方式是不一样
+             * 一个面向Server,一个面向Client。
+             * 因此在AbstractBootstrap中没有提供实现，而是交由子类来完成
+             */
             init(channel);
+
         } catch (Throwable t) {
             channel.unsafe().closeForcibly();
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
