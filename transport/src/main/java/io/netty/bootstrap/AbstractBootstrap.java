@@ -276,8 +276,22 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(localAddress);
     }
 
+
+    /**
+     * 端口绑定的实现
+     * @param localAddress
+     * @return
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
+
+        /*
+         * 通过ChannelFactory完成Channel的创建，并且将Channel注册到NioEventLoop中。
+         * 由于Netty的所有IO操作都是异步的，因此在没有真正注册成功的时候,该方法就会返回。
+         * 通过在ChannelFuture中添加Listener，可以获取到注册结果的通知。
+         */
         final ChannelFuture regFuture = initAndRegister();
+
+
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
