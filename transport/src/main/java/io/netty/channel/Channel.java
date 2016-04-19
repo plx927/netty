@@ -34,6 +34,12 @@ import java.net.SocketAddress;
 /**
  * A nexus to a network socket or a component which is capable of I/O
  * operations such as read, write, connect, and bind.
+ *
+ * Channel是一个网络Socket的连接，并且它可以作为一个组件，提供读,写,连接,绑定等I/O操作。
+ * Netty对JDK原生的ServerSocket(Channel)和Socket(Channel)进行了一层抽象，通过自己定义一套Channel来
+ * 暴露给用户，这样可以使用统一的API来完成不同IO模型的切换。
+ *
+ *
  * <p>
  * A channel provides a user:
  * <ul>
@@ -44,6 +50,16 @@ import java.net.SocketAddress;
  *     associated with the channel.</li>
  * </ul>
  *
+ * 下面来看一个Channel所能够提供给用户的功能:
+ *  1.获取当前Channel的状态，它是否是建立连接、连接是否打开等操作等状态?
+ *  2.一个Channel的配置选项信息，在Netty中是通过ChannelConfig来对Channel进行配置的。
+ *  3.IO操作(包括读、写、连接、绑定等)
+ *  4.获取ChannelPipeline，ChannelPipeline是用于处理所有的IO事件和当前Channel所相关的请求。
+ *
+ *  PS:这里需要引申出来一个问题:
+ *  当两端进行通信时，一端关闭了连接，为什么使用isOpen()方法返回的结果依然是true?
+ *
+ *
  * <h3>All I/O operations are asynchronous.</h3>
  * <p>
  * All I/O operations in Netty are asynchronous.  It means any I/O calls will
@@ -51,6 +67,10 @@ import java.net.SocketAddress;
  * been completed at the end of the call.  Instead, you will be returned with
  * a {@link ChannelFuture} instance which will notify you when the requested I/O
  * operation has succeeded, failed, or canceled.
+ *
+ * 在Netty中所有的I/O操作都是异步的，这点非常的重要。这意味着任何的I/O调用都会立即返回，并且当方法
+ * 返回的时候，是无法确保I/O是否已经执行完成了。用户可以获取到一个ChannelFuture实例,当用户请求的I/O操作
+ * 成功执行，或者执行失败，或者被取消执行，ChannelFutrue都可以获取到通知。
  *
  * <h3>Channels are hierarchical</h3>
  * <p>
@@ -64,6 +84,19 @@ import java.net.SocketAddress;
  * write a new {@link Channel} implementation that creates the sub-channels that
  * share one socket connection, as <a href="http://beepcore.org/">BEEP</a> and
  * <a href="http://en.wikipedia.org/wiki/Secure_Shell">SSH</a> do.
+ *
+ * Netty中Channel是具有层级结构的：
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
  *
  * <h3>Downcast to access transport-specific operations</h3>
  * <p>
