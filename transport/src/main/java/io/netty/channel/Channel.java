@@ -72,6 +72,9 @@ import java.net.SocketAddress;
  * 返回的时候，是无法确保I/O是否已经执行完成了。用户可以获取到一个ChannelFuture实例,当用户请求的I/O操作
  * 成功执行，或者执行失败，或者被取消执行，ChannelFutrue都可以获取到通知。
  *
+ *
+ *
+ *
  * <h3>Channels are hierarchical</h3>
  * <p>
  * A {@link Channel} can have a {@linkplain #parent() parent} depending on
@@ -86,16 +89,12 @@ import java.net.SocketAddress;
  * <a href="http://en.wikipedia.org/wiki/Secure_Shell">SSH</a> do.
  *
  * Netty中Channel是具有层级结构的：
+ * 一个Channel可以拥有父Channel，具体的父Channel是什么取决于Channel自身是如何创建的。比如，
+ * SocketChannel是由ServerSocketChannel执行accept方法而获取，因此SocketChannel的parent()方法
+ * 返回的就是ServerSocketChannel。
  *
- *
- *
- *
- *
- *
- *
- *
- *
- *
+ * 这句话没理解:
+ * 语义上的层级结构是取决于传输的具体实现(这个Channel属于其他的哪个Channel)，比如我们可以自己实现一个Channel,又它所创建的子Channel可以共享同一个Socket连接。
  *
  *
  * <h3>Downcast to access transport-specific operations</h3>
@@ -110,6 +109,19 @@ import java.net.SocketAddress;
  * It is important to call {@link #close()} or {@link #close(ChannelPromise)} to release all
  * resources once you are done with the {@link Channel}. This ensures all resources are
  * released in a proper way, i.e. filehandles.
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
  */
 public interface Channel extends AttributeMap, Comparable<Channel> {
 
