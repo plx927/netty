@@ -162,12 +162,20 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * Allow to specify a {@link ChannelOption} which is used for the {@link Channel} instances once they got
      * created. Use a value of {@code null} to remove a previous set {@link ChannelOption}.
+     *
+     * 设置Channel的选项配置,主要用于对网络传输连接的配置信息
+     * 比如:
+     * ChannelOption.SO_BACKLOG，ChannelOption.SO_TIMEOUT等信息
+     * 当ChannelOption的值为null时，则将该ChannelOption的参数移除。
+     * 因为底层使用的是非线程安全的Map,防止多个线程通过操作AbstractBootstrap引导类，因此底层对Map进行了同步操作。
+     *
      */
     @SuppressWarnings("unchecked")
     public <T> B option(ChannelOption<T> option, T value) {
         if (option == null) {
             throw new NullPointerException("option");
         }
+
         if (value == null) {
             synchronized (options) {
                 options.remove(option);
@@ -330,8 +338,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * @return
      */
     final ChannelFuture initAndRegister() {
+        //通过Channel工厂完成Channel的创建,默认使用的是ReflectiveChannelFactory
         final Channel channel = channelFactory().newChannel();
         try {
+            //完成对Channel的初始化,具体实现取决于ServerBootstrap与Bootstrap的实现
             init(channel);
         } catch (Throwable t) {
             channel.unsafe().closeForcibly();
