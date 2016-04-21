@@ -56,6 +56,12 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
         return register(channel, new DefaultChannelPromise(channel, this));
     }
 
+    /**
+     * 完成Channel真正的注册处理，EventLoop底层通过Unsafe完成Channel的注册。
+     * @param channel 要注册的Channel
+     * @param promise 注册回调结果
+     * @return
+     */
     @Override
     public ChannelFuture register(final Channel channel, final ChannelPromise promise) {
         if (channel == null) {
@@ -64,7 +70,11 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
         if (promise == null) {
             throw new NullPointerException("promise");
         }
-
+        /**
+         * 通过Channel所维护的Unsafe来完成注册,
+         * 底层返回的是NioUnsafe。
+         * {@link io.netty.channel.AbstractChannel.AbstractUnsafe#register(EventLoop, ChannelPromise)}
+         */
         channel.unsafe().register(this, promise);
         return promise;
     }

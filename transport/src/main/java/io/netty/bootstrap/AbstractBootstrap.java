@@ -16,16 +16,7 @@
 
 package io.netty.bootstrap;
 
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPromise;
-import io.netty.channel.DefaultChannelPromise;
-import io.netty.channel.EventLoop;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ReflectiveChannelFactory;
+import io.netty.channel.*;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.GlobalEventExecutor;
@@ -75,6 +66,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * The {@link EventLoopGroup} which is used to handle all the events for the to-be-created
      * {@link Channel}
+     *
+     * 这里的Group是用于处理所有对于将要被创建的Channel的IO事件。
+     *
      */
     @SuppressWarnings("unchecked")
     public B group(EventLoopGroup group) {
@@ -334,6 +328,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
 
     /**
+     * 重要:
      * 创建Channel并且完成对Channel的异步注册实现
      * @return
      */
@@ -349,6 +344,21 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(channel, GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        /**
+         *  注意:这里的group是boss线程池，用于接收客户端连接
+         *  NioEventLoopGroup boss = new NioEventLoopGroup();
+         *  NioEventLoopGroup worker= new NioEventLoopGroup();
+         *
+         *  ServerBootstrap bootstrap = new ServerBootratrp();
+         *  bootstrap.group(boss,worker);
+         *  可以看到ServerBootstrap在创建的时候将外部传入的boos设置到了该group中。
+         *
+         *  具体参考{@link io.netty.bootstrap.AbstractBootstrap#group(EventLoopGroup)}说明
+         *
+         *  将Channel异步注册到EventLoopGroup(NioEventLoopGroup)中
+         *  NioEventLoopGroup其所管理的NioEventLoop中选择一个执行真正的注册处理。
+         *  具体参考{@link io.netty.channel.SingleThreadEventLoop#register(Channel)}方法。
+         */
         ChannelFuture regFuture = group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {

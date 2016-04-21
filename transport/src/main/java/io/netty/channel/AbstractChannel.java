@@ -16,6 +16,7 @@
 package io.netty.channel;
 
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.nio.AbstractNioChannel;
 import io.netty.util.DefaultAttributeMap;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.EmptyArrays;
@@ -25,11 +26,7 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.io.IOException;
-import java.net.ConnectException;
-import java.net.InetSocketAddress;
-import java.net.NoRouteToHostException;
-import java.net.SocketAddress;
-import java.net.SocketException;
+import java.net.*;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NotYetConnectedException;
 import java.util.concurrent.Executor;
@@ -52,10 +49,20 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     private MessageSizeEstimator.Handle estimatorHandle;
 
+    //Channel的parent
     private final Channel parent;
+
+    //Channel的全局唯一标示
     private final ChannelId id;
+
     private final Unsafe unsafe;
+
+    /**
+     * 每一个Channel底层通过一个Pipeline来维护其所调用的Handler
+     */
     private final DefaultChannelPipeline pipeline;
+
+
     private final ChannelFuture succeededFuture = new SucceededChannelFuture(this, null);
     private final VoidChannelPromise voidPromise = new VoidChannelPromise(this, true);
     private final VoidChannelPromise unsafeVoidPromise = new VoidChannelPromise(this, false);
@@ -63,6 +70,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     private volatile SocketAddress localAddress;
     private volatile SocketAddress remoteAddress;
+
+    //当前Channel要注册的EventLoop
     private volatile EventLoop eventLoop;
     private volatile boolean registered;
 
@@ -453,6 +462,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return remoteAddress0();
         }
 
+
+
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             if (eventLoop == null) {
@@ -462,6 +473,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
             }
+
+            /**
+             * 判断当前的EventLoop是否是某个特定的EventLoop的实例
+             *  {@link io.netty.channel.nio.AbstractNioChannel#isCompatible(EventLoop)}
+             *  {@link io.netty.channel.oio.AbstractOioChannel#isCompatible(EventLoop)}
+             */
             if (!isCompatible(eventLoop)) {
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
@@ -470,6 +487,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             AbstractChannel.this.eventLoop = eventLoop;
 
+            /**
+             * 判断当前的执行线程是否在EventLoop中执行
+             * 参考{@link SingleThreadEventLoop#inEventLoop(Thread)}
+             */
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
@@ -499,18 +520,38 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                /**
+                 * 真正完成将Channel进行注册
+                 * 对于OioChannel是没有注册意义的，因此是一个空实现
+                 * 而对于NioChannel才会真正完成注册，参考{@link AbstractNioChannel#doRegister()}
+                 */
                 doRegister();
+
                 neverRegistered = false;
                 registered = true;
 
+                /**
+                 * 通过下面的的注释可以看到，此时才算基本完成将Channel注册到EventLoop中,
+                 * 此时需要调用ChannelHandler的回调方法,在真正完成注册之前,需要调用ChannelHandler的回调方法。
+                 *
+                 */
                 if (firstRegistration) {
                     // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
                     // that were added before the registration was done.
+
+                    //该方法的调用应该在触发Handler的fireChannelRegistered之前调用，调式该方法
                     pipeline.callHandlerAddedForAllHandlers();
                 }
 
                 safeSetSuccess(promise);
+
+                //触发PipeLine中的ChannelHandler的注册事件
                 pipeline.fireChannelRegistered();
+
+
+                /**
+                 * 只有当Channel还没有注册的时候才会触发Channel被激活。
+                 */
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
                 if (isActive()) {
