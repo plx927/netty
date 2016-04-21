@@ -104,7 +104,8 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     public NioServerSocketChannel(ServerSocketChannel channel) {
         /*
          * 对生成的java.nio.channels.ServerScoektChannel进行Selector的注册
-         * 并且设置Channel所关注的兴趣事件和非阻塞模式;同时还将该Channel添加到ChannelPipeline中
+         * 并且设置Channel所关注的兴趣事件和非阻塞模式
+         * 同时还将该Channel添加到ChannelPipeline中
          * 具体实现在AbstractNioChannel和AbstractChannel。
          */
         super(null, channel, SelectionKey.OP_ACCEPT);
