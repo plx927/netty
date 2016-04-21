@@ -277,8 +277,20 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(localAddress);
     }
 
+
+    /**
+     * Channel对于端口异步绑定的实现处理
+     * @param localAddress 绑定的地址与端口信息
+     * @return 返回ChannelFutrue,当事件处理完成之后，ChanneFutrue会得到通知。
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        /*
+         * 初始化Channel，然后对Channel实现异步的注册
+         * 思考一个问题:理论上初始化完成后并实现了异步注册不就完了嘛，为什么后面还搞这么多东西出来。
+         */
         final ChannelFuture regFuture = initAndRegister();
+
+
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
@@ -312,6 +324,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+
+    /**
+     * 创建Channel并且完成对Channel的异步注册实现
+     * @return
+     */
     final ChannelFuture initAndRegister() {
         final Channel channel = channelFactory().newChannel();
         try {

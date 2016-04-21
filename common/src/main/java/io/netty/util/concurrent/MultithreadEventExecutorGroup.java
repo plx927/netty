@@ -30,6 +30,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
 
+    /*
+     * EventExecutorGroup是EventExecutor的管理者，因此底层维护着多个EventExecutor
+     * 并且将自己传递给EventExecutor，通过其parent方法获取EventExecutorGroup。
+     */
     private final EventExecutor[] children;
     private final Set<EventExecutor> readonlyChildren;
     private final AtomicInteger childIndex = new AtomicInteger();
@@ -60,6 +64,10 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
         }
 
+        /*
+         * 创建线程池
+         *
+         */
         if (executor == null) {
             executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
         }

@@ -37,6 +37,9 @@ import java.util.List;
 /**
  * A {@link io.netty.channel.socket.ServerSocketChannel} implementation which uses
  * NIO selector based implementation to accept new connections.
+ *
+ * 封装对ServerSocketChannel的实现。
+ *
  */
 public class NioServerSocketChannel extends AbstractNioMessageChannel
                              implements io.netty.channel.socket.ServerSocketChannel {
@@ -46,6 +49,11 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
 
+    /**
+     * 使用SelectorProvider直接创建Channel是属于性能改善的部分，减少创建大量Channel时所产生的Condition。
+     * @param provider
+     * @return
+     */
     private static ServerSocketChannel newSocket(SelectorProvider provider) {
         try {
             /**
@@ -53,6 +61,19 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
              *  {@link SelectorProvider#provider()} which is called by each ServerSocketChannel.open() otherwise.
              *
              *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
+             *
+             *  如果直接使用ServerSocketChannel.open()来创建ServerSocketChannel，
+             *  其底层会先通过SelectorProvider来获取到具体的SelectorProvider的实现。
+             *  SelectorProvider.provider(),但是这个方法使用了synchronized来创建单例SelectorProvider实现类线程安全的创建。
+             *  这在服务器端还没有很大影响，但是如果我的应用需要同时创建大量的SocketChannel时，如果直接使用SocketChannel.open();
+             *  它也需要先获取到SelectorProvider的实现，每一次获取都需要加锁，但是这样的加锁是完全没有意义和必要的，
+             *  (performance penalty about 1% when creating 5000 connections/second)
+             *  每秒5000个所产生的性能代价只有1%。
+             *  这会导致创建大量的SocketChannel时速度非常慢；因此直接使用SelectorProvider来创建Channel就可以避免锁的使用。
+             *  官方给出的总结:Less conditions when create new channels.
+             *  参考:<a href="https://github.com/netty/netty/commit/e0b2f34a379777a7d4e1c9efe31a1d1c66bb6d74">
+             *      commit/e0b2f34a379777a7d4e1c9efe31a1d1c66bb6d74
+             *      </a>
              */
             return provider.openServerSocketChannel();
         } catch (IOException e) {
@@ -81,6 +102,11 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance using the given {@link ServerSocketChannel}.
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
+        /*
+         * 对生成的java.nio.channels.ServerScoektChannel进行Selector的注册
+         * 并且设置Channel所关注的兴趣事件和非阻塞模式;同时还将该Channel添加到ChannelPipeline中
+         * 具体实现在AbstractNioChannel和AbstractChannel。
+         */
         super(null, channel, SelectionKey.OP_ACCEPT);
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
