@@ -38,7 +38,9 @@ import java.util.Map;
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
 
+    //这里的EventLoopGroup是Boss线程池
     volatile EventLoopGroup group;
+
     @SuppressWarnings("deprecation")
     private volatile ChannelFactory<? extends C> channelFactory;
     private volatile SocketAddress localAddress;
@@ -67,8 +69,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * The {@link EventLoopGroup} which is used to handle all the events for the to-be-created
      * {@link Channel}
      *
-     * 这里的Group是用于处理所有对于将要被创建的Channel的IO事件。
+     * 这里的Group是用于处理 “将要被创建的这个Channel” 所发生的IO事件。
+     * Channel没有在这里所定义,而在这里只是定义了一个ChannelFactory。
      *
+     * 这里可以参考一下ChannelFactory中对于泛型的用法。
+     *
+     * 返回的B可能是Bootstrap，也可能是Serverbootstrap。
      */
     @SuppressWarnings("unchecked")
     public B group(EventLoopGroup group) {
@@ -117,6 +123,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * is not working for you because of some more complex needs. If your {@link Channel} implementation
      * has a no-args constructor, its highly recommend to just use {@link #channel(Class)} for
      * simplify your code.
+     *
+     * 注意,Netty中的ChannelFactory有两个:
+     * 一个是io.netty.bootstrap包中的，另外一个是io.netty.channel包中的。
      */
     @SuppressWarnings({ "unchecked", "deprecation" })
     public B channelFactory(io.netty.channel.ChannelFactory<? extends C> channelFactory) {
@@ -212,6 +221,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (group == null) {
             throw new IllegalStateException("group not set");
         }
+        /*
+         * 这里会去检测ChannelFactory的创建，当我们在设置完成Channel之后，底层就会显示的帮助我们创建ChannelFactory。
+         */
         if (channelFactory == null) {
             throw new IllegalStateException("channel or channelFactory not set");
         }
@@ -263,6 +275,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * Create a new {@link Channel} and bind it.
+     * ServerBootstrap的bind方法所完成的任务:
+     * 1.将ServerSocketChannel往EventLoop中进行注册
+     * 2.端口的绑定
+     * 具体实现为{@link AbstractBootstrap#doBind(SocketAddress)}
      */
     public ChannelFuture bind(InetAddress inetHost, int inetPort) {
         return bind(new InetSocketAddress(inetHost, inetPort));
@@ -282,29 +298,50 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * Channel对于端口异步绑定的实现处理
+     * 1.先完成Channel在EventLoop中的注册
+     * 2.当注册成功后，才完成端口的绑定操作
+     *
      * @param localAddress 绑定的地址与端口信息
      * @return 返回ChannelFutrue,当事件处理完成之后，ChanneFutrue会得到通知。
      */
     private ChannelFuture doBind(final SocketAddress localAddress) {
         /*
-         * 初始化Channel，然后对Channel实现异步的注册
-         * 思考一个问题:理论上初始化完成后并实现了异步注册不就完了嘛，为什么后面还搞这么多东西出来。
+         * 初始化Channel，然后对Channel实现异步的注册,通过返回ChannelFutrue来表示Channel在EventLopp中注册的结果
+         *
+         * 注意到:Netty是先完成Channel在EventLoop中的注册操作，只有当Channel注册成功才会完成Channel的绑定操作
+         * 而将Channel向EventLoop中注册的过程又是异步处理的。
          */
         final ChannelFuture regFuture = initAndRegister();
 
 
         final Channel channel = regFuture.channel();
+
+        /*
+         * 判断是否有I/O异常发生,可以看到在initAndRegister的时候也判断了一次注册过程是否发生异常
+         * 因此可以看到异步处理在获取到结果后总是反复的判断。
+         */
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        /**
+         * 由于Netty中的所有I/O操作都是异步的，因此在执行下面的代码的时候我们并不知道是否已经执行完成
+         */
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+
+            //当Channel已经注册完成并且成功注册,此时完成Channel的端口绑定操作
             doBind0(regFuture, channel, localAddress, promise);
+
             return promise;
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
+
+            /*
+             * 注册的结果通常而言在这个时候都已经得到了，这里是针对于还未得到结果的特殊处理
+             * 这里通过在之前返回的Future中添加监听器，用户获取最后注册的结果,如果执行成功,则对Channel进行真正的端口绑定。
+             */
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
             regFuture.addListener(new ChannelFutureListener() {
                 @Override
@@ -329,7 +366,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * 重要:
-     * 创建Channel并且完成对Channel的异步注册实现
+     * Channel初始化以及Channel向EventLoop中进行注册
+     *
      * @return
      */
     final ChannelFuture initAndRegister() {
@@ -356,10 +394,17 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
          *  具体参考{@link io.netty.bootstrap.AbstractBootstrap#group(EventLoopGroup)}说明
          *
          *  将Channel异步注册到EventLoopGroup(NioEventLoopGroup)中
-         *  NioEventLoopGroup其所管理的NioEventLoop中选择一个执行真正的注册处理。
-         *  具体参考{@link io.netty.channel.SingleThreadEventLoop#register(Channel)}方法。
+         *  NioEventLoopGroup会从其所管理的NioEventLoop中选择一个执行真正的注册处理。
+         *  具体参考{@link io.netty.channel.MultithreadEventLoopGroup#register(Channel)}方法。
+         *
+         *  因为NioEventLoopGroup继承了MultithreadEventLoopGroup
          */
         ChannelFuture regFuture = group().register(channel);
+
+        /*
+         * 对于异步执行处理,每次返回执行的回调结果之后，
+         * 在执行某个操作时，总是先判断一下执行是否结果。
+         */
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
@@ -382,18 +427,37 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     abstract void init(Channel channel) throws Exception;
 
+
+    /**
+     * 真正的端口绑定操作
+     *
+     * 这里才是真正完成Channel端口绑定的过程,Netty是先对Channel进行注册,然后再对Channel绑定。
+     * 通过获取到Boss线程池执行一个"一次性"的任务,这种{@link OneTimeTask}，绝对不能重复提交。
+     *
+     * @param regFuture Channel往EventLoop中注册的结果
+     * @param channel
+     * @param localAddress
+     * @param promise
+     */
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
             final SocketAddress localAddress, final ChannelPromise promise) {
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+
+        /*
+         * 从上面的描述中我们可以看到,这个方法的执行是在ChannelHandler的channelRegistered方法之前执行。
+         * 让用户所编写的ChannelHandler可以在channelRegistered方法中有机会去进行Pipeline的设置。
+         */
         channel.eventLoop().execute(new OneTimeTask() {
             @Override
             public void run() {
+                //判断Channel在EventLoop中注册是否成功,如果已经注册成功,那么对Channel进行绑定
                 if (regFuture.isSuccess()) {
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
+                    //通过promise通过用户Channel注册失败的原因
                     promise.setFailure(regFuture.cause());
                 }
             }

@@ -48,7 +48,14 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
     private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> childAttrs = new LinkedHashMap<AttributeKey<?>, Object>();
+
+    /*
+     * 只有在Serverbootstrap中定义了childGroup，其用于作为worker线程池.
+     * 在AbstractBootstrap也定义了一个EventLoopGroup,用于作为boss线程池
+     */
     private volatile EventLoopGroup childGroup;
+
+
     private volatile ChannelHandler childHandler;
 
     public ServerBootstrap() { }
@@ -217,6 +224,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     private static Entry<AttributeKey<?>, Object>[] newAttrArray(int size) {
         return new Entry[size];
     }
+
+
+
 
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 

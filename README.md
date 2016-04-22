@@ -24,3 +24,17 @@ Note that this is build-time requirement.  JDK 5 (for 3.x) or 6 (for 4.0+) is en
 ## Branches to look
 
 Development of all versions takes place in each branch whose name is identical to `<majorVersion>.<minorVersion>`.  For example, the development of 3.9 and 4.0 resides in [the branch '3.9'](https://github.com/netty/netty/tree/3.9) and [the branch '4.0'](https://github.com/netty/netty/tree/4.0) respectively.
+
+
+## 个人源码笔记
+
+### 2016-04-21
+
+
+
+
+
+
+
+
+
