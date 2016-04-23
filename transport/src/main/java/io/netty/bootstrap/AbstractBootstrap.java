@@ -288,6 +288,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind(SocketAddress localAddress) {
+        /*
+         * 对EventLoopGroup和ChannelFactory进行检测
+         */
         validate();
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
@@ -297,7 +300,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
 
     /**
-     * Channel对于端口异步绑定的实现处理
+     * Channel对于端口绑定的异步实现处理
      * 1.先完成Channel在EventLoop中的注册
      * 2.当注册成功后，才完成端口的绑定操作
      *
@@ -306,10 +309,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      */
     private ChannelFuture doBind(final SocketAddress localAddress) {
         /*
-         * 初始化Channel，然后对Channel实现异步的注册,通过返回ChannelFutrue来表示Channel在EventLopp中注册的结果
+         * 初始化Channel，然后对Channel实现异步的注册,最后返回ChannelFutrue来表示Channel在EventLopp中注册的结果
          *
          * 注意到:Netty是先完成Channel在EventLoop中的注册操作，只有当Channel注册成功才会完成Channel的绑定操作
-         * 而将Channel向EventLoop中注册的过程又是异步处理的。
+         * 而将Channel向EventLoop中注册的过程又是异步处理的，因此在得到方法的方法结果后就需要对方法执行的结果反复检测。
          */
         final ChannelFuture regFuture = initAndRegister();
 
@@ -366,7 +369,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * 重要:
-     * Channel初始化以及Channel向EventLoop中进行注册
+     * Channel初始化以及Channel向EventLoopGroup中进行注册
+     * EventLoop-->Selector
+     * ChannelFuture register(Channel channel){
+     *     next().register(channel);
+     * }
      *
      * @return
      */
@@ -393,8 +400,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
          *
          *  具体参考{@link io.netty.bootstrap.AbstractBootstrap#group(EventLoopGroup)}说明
          *
-         *  将Channel异步注册到EventLoopGroup(NioEventLoopGroup)中
-         *  NioEventLoopGroup会从其所管理的NioEventLoop中选择一个执行真正的注册处理。
+         *  将Channel异步注册到EventLoopGroup(NioEventLoopGroup)中;
+         *  EventLoopGroup是EventExecutorGroup的扩展,它提供了Channel注册的功能。
+         *  底层的NioEventLoopGroup会从其所管理的NioEventLoop中选择一个执行真正的注册处理。
          *  具体参考{@link io.netty.channel.MultithreadEventLoopGroup#register(Channel)}方法。
          *
          *  因为NioEventLoopGroup继承了MultithreadEventLoopGroup

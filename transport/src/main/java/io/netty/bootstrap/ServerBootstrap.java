@@ -15,19 +15,9 @@
  */
 package io.netty.bootstrap;
 
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelConfig;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ServerChannel;
+import io.netty.channel.*;
 import io.netty.util.AttributeKey;
+import io.netty.util.concurrent.EventExecutorGroup;
 import io.netty.util.internal.OneTimeTask;
 import io.netty.util.internal.StringUtil;
 import io.netty.util.internal.logging.InternalLogger;
@@ -155,7 +145,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
 
     /**
-     * 对io.netty.channel.socket.ServerSocketChannel进行初始化
+     * 对io.netty.channel.socket.ServerSocketChannel进行初始化,对JDK原生的ServerSocketChannel的一个封装实现。
+     *
      * @param channel
      * @throws Exception
      */
@@ -175,10 +166,15 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
         }
 
+        /**
+         * {@link io.netty.channel.socket.ServerSocketChannel的ChannelPipeline}
+         */
         ChannelPipeline p = channel.pipeline();
-
+        //用于处理IO事件的线程池
         final EventLoopGroup currentChildGroup = childGroup;
+        //通常为一个ChannelInitalizer
         final ChannelHandler currentChildHandler = childHandler;
+
         final Entry<ChannelOption<?>, Object>[] currentChildOptions;
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs;
         synchronized (childOptions) {
@@ -196,6 +192,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
+                /**
+                 * 具体参考{@link io.netty.channel.DefaultChannelPipeline#addLast(EventExecutorGroup , ChannelHandlerInvoker invoker,
+                 *       String , ChannelHandler )}
+                 */
                 pipeline.addLast(new ServerBootstrapAcceptor(
                         currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
             }

@@ -73,11 +73,10 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     /**
      * 从当前对象所管理的EventLoop中选择一个进行注册。
-     *
      * 因为EventLoop继承了EventLoopGroup,因此它也有注册的方法。
      *
-     * @param channel
-     * @return
+     * @param channel 要注册Channel
+     * @return 异步注册的执行结果
      */
     @Override
     public ChannelFuture register(Channel channel) {

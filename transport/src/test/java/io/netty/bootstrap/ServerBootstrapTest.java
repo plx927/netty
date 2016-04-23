@@ -36,6 +36,7 @@ public class ServerBootstrapTest {
         final AtomicReference<Throwable> error = new AtomicReference<Throwable>();
         LocalEventLoopGroup group = new LocalEventLoopGroup(1);
         try {
+            //引导ServerChannel启动的工具类,通过ChannelFactory来帮助我自动创建对应的Channel
             ServerBootstrap sb = new ServerBootstrap();
             sb.channel(LocalServerChannel.class)
               .group(group)
