@@ -30,10 +30,23 @@ Development of all versions takes place in each branch whose name is identical t
 
 ### 2016-04-21
 
+#### ServerBootstrap是如何完成对Channel的初始化、注册、端口绑定操作的。
 
 
 
+#### Channel与Pipeline的关系
+Each channel has its own pipeline and it is created automatically when a new channel is created.(一一对应)
 
+
+#### 分析一个I/O事件在ChannelPipeline的执行流程
+一个I/O事件的处理流程：
+在ChannelInboundHandler或者ChannelOutboundHandler所处理，在处理完成后；
+通过执行定义在ChannelHandlerContext中的事件传播方法(比如有fireChannelRead或者write方法)，将事件传递给和自己最近的ChannelHandler。
+
+#### ChannelHandlerContext
+如何对I/O事件进行传播
+
+ChannelHandlerContext的read()方法作为输出事件的传播方法：
 
 
 
