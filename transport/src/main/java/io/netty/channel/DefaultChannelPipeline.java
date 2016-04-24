@@ -181,6 +181,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
+        //ChannelHandlerInvoker为null
         return addLast(group, null, name, handler);
     }
 
@@ -189,6 +190,15 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return addLast(null, invoker, name, handler);
     }
 
+
+    /**
+     * 这里允许ChannelHandlerInvoker可以为null,是因为EventExecutorGroup
+      * @param group
+     * @param invoker
+     * @param name
+     * @param handler
+     * @return
+     */
     private ChannelPipeline addLast(EventExecutorGroup group, ChannelHandlerInvoker invoker,
                                     String name, ChannelHandler handler) {
         assertGroupAndInvoker(group, invoker);
@@ -197,12 +207,22 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         final AbstractChannelHandlerContext newCtx;
         final boolean inEventLoop;
         synchronized (this) {
+            //判断ChannelHandler是否是在每一个不同的ChannelPipeLine是共享的
             checkMultiplicity(handler);
+
+            /**
+             *  从EventLoop从中可以获取到ChannelHandlerInvoker
+             *  这里底层并不是从EventLoop中去获取ChannelHandlerInvoker，
+             *  而是从DefaultChannelHandlerInvokder所维护的Map中获取到的,
+             *  其实这也很自然，如果要从EventLoop中获取，那么就必须将进行向下类型的转换，
+             *
+             */
 
             if (group != null) {
                 invoker = findInvoker(group);
             }
 
+            //判断Channel是否已经注册
             newCtx = new DefaultChannelHandlerContext(this, invoker, filterName(name, handler), handler);
             executor = executorSafe(invoker);
 
@@ -458,12 +478,19 @@ final class DefaultChannelPipeline implements ChannelPipeline {
             if (h == null) {
                 break;
             }
+            //Channel的名字为null
             addLast(group, null, h);
         }
 
         return this;
     }
 
+    /**
+     * 在添加ServerbootstrapAcceptor的时候,ChannelHandlerInvoker为null.
+     * @param invoker   the {@link ChannelHandlerInvoker} which invokes the {@code handler}s event handler methods
+     * @param handlers  the handlers to insert last
+     * @return
+     */
     @Override
     public ChannelPipeline addLast(ChannelHandlerInvoker invoker, ChannelHandler... handlers) {
         if (handlers == null) {
@@ -709,6 +736,9 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     private static void checkMultiplicity(ChannelHandler handler) {
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
+            /**
+             * 只有ChannelHandler使用了@Sharable标注，并且设置了可以被多次添加，才可以在Pipeline中反复添加获取移除
+             */
             if (!h.isSharable() && h.added) {
                 throw new ChannelPipelineException(
                         h.getClass().getName() +
@@ -957,6 +987,10 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return buf.toString();
     }
 
+    /**
+     * 通过ChannelHandlerContext来传播事件
+     * @return
+     */
     @Override
     public ChannelPipeline fireChannelRegistered() {
         head.fireChannelRegistered();

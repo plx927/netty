@@ -19,17 +19,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoop;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.*;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.CharsetUtil;
@@ -48,8 +38,10 @@ import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertThat;
 
 
 public class NioSocketChannelTest {
@@ -79,13 +71,13 @@ public class NioSocketChannelTest {
                 }
             });
 
-            SocketAddress address = sb.bind(0).sync().channel().localAddress();
+            SocketAddress address = sb.bind(8080).sync().channel().localAddress();
 
             Socket s = new Socket(NetUtil.LOCALHOST, ((InetSocketAddress) address).getPort());
 
             InputStream in = s.getInputStream();
             byte[] buf = new byte[8192];
-            for (;;) {
+            for (; ; ) {
                 if (in.read(buf) == -1) {
                     break;
                 }
@@ -124,8 +116,8 @@ public class NioSocketChannelTest {
                 @Override
                 public void channelActive(final ChannelHandlerContext ctx) throws Exception {
                     // Trigger a gathering write by writing two buffers.
-                    ctx.write(Unpooled.wrappedBuffer(new byte[] { 'a' }));
-                    ChannelFuture f = ctx.write(Unpooled.wrappedBuffer(new byte[] { 'b' }));
+                    ctx.write(Unpooled.wrappedBuffer(new byte[]{'a'}));
+                    ChannelFuture f = ctx.write(Unpooled.wrappedBuffer(new byte[]{'b'}));
                     f.addListener(new ChannelFutureListener() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
@@ -177,50 +169,50 @@ public class NioSocketChannelTest {
         ServerBootstrap b = new ServerBootstrap();
         try {
             b.group(group)
-             .channel(NioServerSocketChannel.class)
-             .childOption(ChannelOption.SO_KEEPALIVE, true)
-             .childHandler(new ChannelInitializer<Channel>() {
-                 @Override
-                 protected void initChannel(Channel ch) throws Exception {
-                     ChannelPipeline pipeline = ch.pipeline();
-                     pipeline.addLast(new SimpleChannelInboundHandler<ByteBuf>() {
-                         @Override
-                         protected void channelRead0(ChannelHandlerContext ctx, ByteBuf byteBuf) {
-                             // We was able to read something from the Channel after reregister.
-                             latch.countDown();
-                         }
+                    .channel(NioServerSocketChannel.class)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true)
+                    .childHandler(new ChannelInitializer<Channel>() {
+                        @Override
+                        protected void initChannel(Channel ch) throws Exception {
+                            ChannelPipeline pipeline = ch.pipeline();
+                            pipeline.addLast(new SimpleChannelInboundHandler<ByteBuf>() {
+                                @Override
+                                protected void channelRead0(ChannelHandlerContext ctx, ByteBuf byteBuf) {
+                                    // We was able to read something from the Channel after reregister.
+                                    latch.countDown();
+                                }
 
-                         @Override
-                         public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-                             final EventLoop loop = group.next();
-                             if (sameEventLoop) {
-                                 deregister(ctx, loop);
-                             } else {
-                                 loop.execute(new Runnable() {
-                                     @Override
-                                     public void run() {
-                                         deregister(ctx, loop);
-                                     }
-                                 });
-                             }
-                         }
+                                @Override
+                                public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+                                    final EventLoop loop = group.next();
+                                    if (sameEventLoop) {
+                                        deregister(ctx, loop);
+                                    } else {
+                                        loop.execute(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                deregister(ctx, loop);
+                                            }
+                                        });
+                                    }
+                                }
 
-                         private void deregister(ChannelHandlerContext ctx, final EventLoop loop) {
-                             // As soon as the channel becomes active re-register it to another
-                             // EventLoop. After this is done we should still receive the data that
-                             // was written to the channel.
-                             ctx.deregister().addListener(new ChannelFutureListener() {
-                                 @Override
-                                 public void operationComplete(ChannelFuture cf) {
-                                     Channel channel = cf.channel();
-                                     assertNotSame(loop, channel.eventLoop());
-                                     group.next().register(channel);
-                                 }
-                             });
-                         }
-                     });
-                 }
-             });
+                                private void deregister(ChannelHandlerContext ctx, final EventLoop loop) {
+                                    // As soon as the channel becomes active re-register it to another
+                                    // EventLoop. After this is done we should still receive the data that
+                                    // was written to the channel.
+                                    ctx.deregister().addListener(new ChannelFutureListener() {
+                                        @Override
+                                        public void operationComplete(ChannelFuture cf) {
+                                            Channel channel = cf.channel();
+                                            assertNotSame(loop, channel.eventLoop());
+                                            group.next().register(channel);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
 
             sc = b.bind(0).syncUninterruptibly().channel();
 
@@ -240,4 +232,29 @@ public class NioSocketChannelTest {
             group.shutdownGracefully();
         }
     }
+
+
+    @Test
+    public void debugTest() throws InterruptedException {
+
+
+        NioEventLoopGroup boss = new NioEventLoopGroup(1);
+        NioEventLoopGroup worker = new NioEventLoopGroup(1);
+        ServerBootstrap serverBootstrap = new ServerBootstrap().group(boss, worker)
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new ChannelInitializer() {
+                    @Override
+                    protected void initChannel(Channel ch) throws Exception {
+
+                    }
+                });
+        ChannelFuture f = serverBootstrap.bind(8080).sync();
+        f.channel().closeFuture().sync();
+
+        boss.shutdownGracefully();
+        worker.shutdownGracefully();
+    }
+
+
+
 }

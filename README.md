@@ -37,6 +37,8 @@ Development of all versions takes place in each branch whose name is identical t
 #### Channel与Pipeline的关系
 Each channel has its own pipeline and it is created automatically when a new channel is created.(一一对应)
 
+每一个Channel底层都维护着一个EventLoop
+
 
 #### 分析一个I/O事件在ChannelPipeline的执行流程
 一个I/O事件的处理流程：
@@ -50,4 +52,29 @@ ChannelHandlerContext的read()方法作为输出事件的传播方法：
 
 
 
+#### ChannelHandlerInvoker
 
+
+使用组合模式将相同的操作应用在组合和叶子对象，让用户忽略组合对象和其他对象的差异。
+
+
+
+在父类中定义接口的实现，通过抽象方法让子类创建具体的实例。
+newChild()
+newUnsafe()
+
+
+ChannelHandler的执行大体流程：
+
+ChannelPipeline
+      |
+      |
+ChannleHandlerContext
+      |
+      |
+ChannelHandlerInvoker
+      |
+      |
+ChannelHandler
+      
+    

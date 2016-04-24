@@ -146,7 +146,6 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
     /**
      * 对io.netty.channel.socket.ServerSocketChannel进行初始化,对JDK原生的ServerSocketChannel的一个封装实现。
-     *
      * @param channel
      * @throws Exception
      */
@@ -185,6 +184,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
 
         p.addLast(new ChannelInitializer<Channel>() {
+            /**
+             * ChannelInitializer的init方法一旦Channel注册成功，那么该方法就会被调用，当这个方法返回之后,
+             * 该ChannleHandler就会从注册成功的Channel的Pipeline中被移除
+             * @param ch            the {@link Channel} which was registered.
+             * @throws Exception
+             */
             @Override
             public void initChannel(Channel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
@@ -195,6 +200,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 /**
                  * 具体参考{@link io.netty.channel.DefaultChannelPipeline#addLast(EventExecutorGroup , ChannelHandlerInvoker invoker,
                  *       String , ChannelHandler )}
+                 * 这里添加了一个ServerBootstrapAcceptor,它是用于专门负责接受客户端连接的ChannelInboudHandler。
                  */
                 pipeline.addLast(new ServerBootstrapAcceptor(
                         currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
@@ -226,8 +232,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     }
 
 
-
-
+    /**
+     * ServerBootsrapAcceptor的channelRead方法会在接受到客户端连接后触发
+     */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;
@@ -244,6 +251,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             this.childAttrs = childAttrs;
         }
 
+
+        /**
+         * 触发客户端的连接事件
+         * @param ctx
+         * @param msg
+         */
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {

@@ -71,7 +71,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     private volatile SocketAddress localAddress;
     private volatile SocketAddress remoteAddress;
 
-    //当前Channel要注册的EventLoop
+    //当前Channel所维护的EventLoop
     private volatile EventLoop eventLoop;
     private volatile boolean registered;
 
@@ -332,6 +332,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     /**
      * Create a new {@link AbstractUnsafe} instance which will be used for the life-time of the {@link Channel}
+     *
+     *  Netty中带量使用了这种方式来进行处理,MultithreadEventExecutorGroup中 newChild(Executor executor, Object... args)
+     *  也是同样如此。
      */
     protected abstract AbstractUnsafe newUnsafe();
 
@@ -484,16 +487,26 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
-
+            /**
+             * 在NioServerSocketChannel注册的时候，这里会在注册的时候在EventLoop中调用该方法，将自己传递进来。
+             * this为SingleThreadEventLoop
+             * channel.unsafe().register(this, promise);
+             */
             AbstractChannel.this.eventLoop = eventLoop;
 
             /**
-             * 判断当前的执行线程是否在EventLoop中执行
+             * 判断当前的执行线程是否和eventLoop中所维护的线程是同一个线程
              * 参考{@link SingleThreadEventLoop#inEventLoop(Thread)}
+             * 在创建NioEventLoop其维护的Thread默认为null
              */
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
+                /**
+                 * 对于ServerSocketChannel的注册是异步注册的
+                 * 将任务丢入到线程池来进行处理
+                 * 参考{@link  SingleThreadEventLoop#execute(Runnable)}
+                 */
                 try {
                     eventLoop.execute(new OneTimeTask() {
                         @Override
@@ -511,6 +524,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 }
             }
         }
+
 
         private void register0(ChannelPromise promise) {
             try {
@@ -539,7 +553,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
                     // that were added before the registration was done.
 
-                    //该方法的调用应该在触发Handler的fireChannelRegistered之前调用，调式该方法
+                    /*
+                     * 完全注册完成之前，需要通过Pipeline在将Handler都添加进去，
+                     * 该方法的调用应该在触发Handler的fireChannelRegistered之前调用
+                     */
                     pipeline.callHandlerAddedForAllHandlers();
                 }
 

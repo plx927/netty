@@ -15,6 +15,7 @@
  */
 package io.netty.channel;
 
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.concurrent.SingleThreadEventExecutor;
 
 import java.util.concurrent.Executor;
@@ -71,9 +72,23 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
             throw new NullPointerException("promise");
         }
         /**
-         * 通过Channel所维护的Unsafe来完成注册,
-         * 底层返回的是NioUnsafe。
+         * 通过Channel所维护的Unsafe来完成注册,底层返回的是NioUnsafe。
          * {@link io.netty.channel.AbstractChannel.AbstractUnsafe#register(EventLoop, ChannelPromise)}
+         *
+         *  ServerSocketChannel是继承了AbstractNioMessageChannel
+         *
+         *  NioServerSocketChannel n = null;
+         *   n.unsafe().register(this,promise);
+         *   u.unsafe() ==>NioMessageUnsafe
+         */
+
+        //NioServerSocketChannel n = null;
+        //n.unsafe().register(this,promise);
+
+        /*
+         * NioServerSocketChannel的注册也在EventLoop中执行
+         * 注意:因为每个Channel都维护着一个EventLoop,但是在初始化的时候为空,
+         *     因此这里通过注册的时候将其传递进去。
          */
         channel.unsafe().register(this, promise);
         return promise;

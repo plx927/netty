@@ -64,6 +64,9 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     @Override
     public EventLoop next() {
+        /*
+         * 对于NioEventLoopGroup，这里返回的是NioEventLoop
+         */
         return (EventLoop) super.next();
     }
 

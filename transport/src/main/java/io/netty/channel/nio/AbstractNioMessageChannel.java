@@ -70,6 +70,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 try {
                     boolean needReadPendingReset = true;
                     do {
+                        //完成Accept操作
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;

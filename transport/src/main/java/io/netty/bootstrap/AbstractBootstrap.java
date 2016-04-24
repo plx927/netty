@@ -382,6 +382,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         final Channel channel = channelFactory().newChannel();
         try {
             //完成对Channel的初始化,具体实现取决于ServerBootstrap与Bootstrap的实现
+
+            /*
+             * ServerBootstrap的处理流程:
+             * 添加ServerBootstrapAcceptor到ChannelPieline
+             *
+             */
             init(channel);
         } catch (Throwable t) {
             channel.unsafe().closeForcibly();
@@ -401,11 +407,36 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
          *  具体参考{@link io.netty.bootstrap.AbstractBootstrap#group(EventLoopGroup)}说明
          *
          *  将Channel异步注册到EventLoopGroup(NioEventLoopGroup)中;
-         *  EventLoopGroup是EventExecutorGroup的扩展,它提供了Channel注册的功能。
-         *  底层的NioEventLoopGroup会从其所管理的NioEventLoop中选择一个执行真正的注册处理。
+         *  EventLoopGroup是EventExecutorGroup的扩展,并且它提供了Channel注册的功能。
+         *  底层的NioEventLoopGroup会从其所管理的NioEventLoop中选择一个执行真正的注册处理。(组合设计模式)
          *  具体参考{@link io.netty.channel.MultithreadEventLoopGroup#register(Channel)}方法。
          *
          *  因为NioEventLoopGroup继承了MultithreadEventLoopGroup
+         *
+         *  下面深入分析 NioServerSocketChannel 注册的过程是如何执行
+         *  1.从底层维护的NioEventLoop中选取一个来执行真正的注册操作
+         *    NioEventLoop是一个单线程的EventLoop，它将所有的提交的任务都放一个线程进行循环处理
+         *
+         *  2.虽然Netty对外暴露说是"将Channel向EventLoop中进行注册",但是其实最终在Nio的API中
+         *   我们还是得需要使用SelectableChannel.register(Selector,SelectionKey.OP_XX);
+         *   因此Netty中的说法其实是向NioEventLoop中提交一个注册的任务。、
+         *
+         *   NioServerSocketChannel的注册是在Boss线程池所管理的一个NioEventLoop中所执行的。
+         *
+         *  //通过获取Channel的Unsafe类来完成真正的注册,MultithreadEventLoopGroup
+         *   channel.unsafe().register(this, promise);
+         *
+         *  最终执行注册的方法是：
+         *  AbstractChannel.AbstractUnsafe.register(EventLoop eventLoop, final ChannelPromise promise);
+         *
+         *  其底层的操作是判断当前执行线程与传入的eventLoop中所维护的线程是否是同一个线程,如果一样则直接注册。
+         *  如果当前线程与eventLoop中所维护的线程不同，那么就产生一个一次性任务，丢入到boss线程池中去进行处理
+         *  实际对于NioServerSocketChannel是异步处理的，因为在Channel中注册的时候，其维护的EventLoop的Thread在那个时候为null.
+         *
+         *  4.那么是如何异步注册的呢?
+         *  {@link AbstractChannel#doRegister()}
+         *  在注册成功后，会调用 pipeline.callHandlerAddedForAllHandlers();
+         *
          */
         ChannelFuture regFuture = group().register(channel);
 
@@ -430,6 +461,15 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         //         because bind() or connect() will be executed *after* the scheduled registration task is executed
         //         because register(), bind(), and connect() are all bound to the same thread.
 
+        /*
+         * 仔细阅读上面的内容：
+         * 如果从返回的ChannelPromise中没有发现错误信息,可能会发生如下的2种情况:
+         * 1) 如果尝试从当前的event loop中进行注册，此时注册已经结束。
+         *    那么就可以安全地进行端口绑定或者连接远程服务器，因此此时Channel已经注册完成。
+         * 2) 如果注册操作在其他线程在其他线程中进行，那么注册请求已经成功地加入到了event loop的任务队列中，会再之后被执行。
+         *    现在也可以安全地执行绑定或者连接操作，因为绑定或者连接诶操作将在成册任务被成功执行后才得到执行，其原因是它们都在同一个线程
+         *    中，因为注册请求先被添加到队列中，绑定或者连接请求后被添加到任务队列中。
+         */
         return regFuture;
     }
 
