@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Abstract base class for {@link EventExecutor}s that want to support scheduling.
+ *
+ * Netty4.1加入的，在Netty4.0中，SingleThreadEventExecutor直接继承AbstractEventExecutor
  */
 public abstract class AbstractScheduledEventExecutor extends AbstractEventExecutor {
 
@@ -114,6 +116,13 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
         return Math.max(0, scheduledTask.deadlineNanos() - nanoTime());
     }
 
+
+    /**
+     * 从队列中获取任务,但是没有把任务从队列中真正的移除
+     * poll是从队列中获取任务，并且将这个任务从队列中移除。
+     *
+     * @return
+     */
     final ScheduledFutureTask<?> peekScheduledTask() {
         Queue<ScheduledFutureTask<?>> scheduledTaskQueue = this.scheduledTaskQueue;
         if (scheduledTaskQueue == null) {

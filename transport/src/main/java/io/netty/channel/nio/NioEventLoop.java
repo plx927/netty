@@ -56,7 +56,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private static final boolean DISABLE_KEYSET_OPTIMIZATION =
             SystemPropertyUtil.getBoolean("io.netty.noKeySetOptimization", false);
 
+    //最小Selector循环退出的次数
     private static final int MIN_PREMATURE_SELECTOR_RETURNS = 3;
+    //Selector自动修复的次数
     private static final int SELECTOR_AUTO_REBUILD_THRESHOLD;
 
     // Workaround for JDK NIO bug.
@@ -92,8 +94,11 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     /**
      * The NIO {@link Selector}.
+     * 根据Reactor中的主从式结构我们可以理解，EventLoop看作是一个线程,而每个线程都维护着单独的Selector
      */
     Selector selector;
+
+
     private SelectedSelectionKeySet selectedKeys;
 
     private final SelectorProvider provider;
@@ -103,6 +108,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
      * break out of its selection process. In our case we use a timeout for
      * the select method and the select method will block for that time unless
      * waken up.
+     *
+     * Netty中没有使用我们通常使用的select方法,而是通过select(int timeout)的方式来进行处理。
+     * 如果在等待的时间段中希望其被唤醒，那么需要修改该值，来让线程继续执行。
+     * 问题:什么时候会这么做?
+     * 因为Selector.wakeUp()方法的开销是比较大的，如果频繁的wakeUp,对系统的性能影响肯定很大。
+     * 因此Netty中通过一个变量来控制Selector的阻塞操作。
+     *
      */
     private final AtomicBoolean wakenUp = new AtomicBoolean();
 
@@ -300,15 +312,23 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     /**
      * NioEventLoop执行多路复用器的代码
+     * 该代码只在SingleThreadEventExecutor的doStartThread中被调用到
+     * 调式该方法，发现一直在执行。
      */
     @Override
     protected void run() {
         for (;;) {
+            //不管之前的状态是false还是true,将wakeUp的状态设置为false。
             boolean oldWakenUp = wakenUp.getAndSet(false);
             try {
+                //从任务队列中获取任务，如果发现当前有任务,则直接唤醒Selector
+                //这个任务又是从哪里加进来的？
                 if (hasTasks()) {
                     selectNow();
                 } else {
+                    /*
+                     * 当队列中没有任何任务时
+                     */
                     select(oldWakenUp);
 
                     // 'wakenUp.compareAndSet(false, true)' is always evaluated
@@ -611,14 +631,23 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    /**
+     * select固定的时间
+     * @param oldWakenUp
+     * @throws IOException
+     */
     private void select(boolean oldWakenUp) throws IOException {
         Selector selector = this.selector;
         try {
+            //记录select的次数
             int selectCnt = 0;
+            //取到当前时间
             long currentTimeNanos = System.nanoTime();
+            //得到该次select的最后期限,如何得到?
             long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);
             for (;;) {
                 long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;
+                //指定select一段时间,如果在这段时间之后就跳出继续从任务队列中尝试获取任务
                 if (timeoutMillis <= 0) {
                     if (selectCnt == 0) {
                         selector.selectNow();
@@ -630,6 +659,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 int selectedKeys = selector.select(timeoutMillis);
                 selectCnt ++;
 
+                 /*
+                  *  在轮询的过程中，当发生如下的情况就跳出select的执行
+                  *  1.被用户唤醒去执行
+                  *  2.任务队列中添加了新的任务
+                  *  3.有调度的任务需要执行
+                  *
+                  */
                 if (selectedKeys != 0 || oldWakenUp || wakenUp.get() || hasTasks() || hasScheduledTasks()) {
                     // - Selected something,
                     // - waken up by user, or
@@ -656,7 +692,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 if (time - TimeUnit.MILLISECONDS.toNanos(timeoutMillis) >= currentTimeNanos) {
                     // timeoutMillis elapsed without anything selected.
                     selectCnt = 1;
-                } else if (SELECTOR_AUTO_REBUILD_THRESHOLD > 0 &&
+                }
+                //当轮询的次数太多,那么就会可能是因为JDK的BUG所造成，对Selector重新创建。
+                else if (SELECTOR_AUTO_REBUILD_THRESHOLD > 0 &&
                         selectCnt >= SELECTOR_AUTO_REBUILD_THRESHOLD) {
                     // The selector returned prematurely many times in a row.
                     // Rebuild the selector to work around the problem.

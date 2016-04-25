@@ -77,6 +77,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         PROPERTIES_UPDATER = propertiesUpdater;
     }
 
+
+    //LinkedBlockingQueue
     private final Queue<Runnable> taskQueue;
 
     private volatile Thread thread;
@@ -360,6 +362,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     /**
      * Returns the amount of time left until the scheduled task with the closest dead line is executed.
+     * 返回一个调度被执行的调度任务最近的结束时间
      */
     protected long delayNanos(long currentTimeNanos) {
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();

@@ -112,7 +112,19 @@ ChannleHandlerContext
 ChannelHandlerInvoker
       |
       |
-ChannelHandler
+ChannelHandler    
+
+
+#### NioEventLoop
+
+Netty中没有使用我们通常使用的select方法,而是通过select(int timeout)的方式来进行
+如果在等待的时间段中希望其被唤醒，那么需要修改该值，来让线程继续执行。
+问题:什么时候会这么做?
+
+
+
+
+
 
 
 #### 问题
