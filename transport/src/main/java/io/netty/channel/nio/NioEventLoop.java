@@ -299,11 +299,18 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         logger.info("Migrated " + nChannels + " channel(s) to the new Selector.");
     }
 
+
+    /**
+     * NioEventLoop执行多路复用器的代码
+     * 该代码只在SingleThreadEventExecutor的doStartThread中被调用到
+     * 调式该方法，发现一直在执行。
+     */
     @Override
     protected void run() {
         for (;;) {
             boolean oldWakenUp = wakenUp.getAndSet(false);
             try {
+                //从任务队列中获取任务，如果发现当前有任务,则直接执行Selector.selectNow()操作
                 if (hasTasks()) {
                     selectNow();
                 } else {
