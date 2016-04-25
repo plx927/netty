@@ -171,9 +171,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         ChannelPipeline p = channel.pipeline();
         //用于处理IO事件的线程池
         final EventLoopGroup currentChildGroup = childGroup;
-        //通常为一个ChannelInitalizer
+
+        //通常是我们在创建ServerBootstrap的一个ChannelInitalizer
         final ChannelHandler currentChildHandler = childHandler;
 
+        //Channel的配置选项
         final Entry<ChannelOption<?>, Object>[] currentChildOptions;
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs;
         synchronized (childOptions) {
@@ -185,13 +187,14 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
         p.addLast(new ChannelInitializer<Channel>() {
             /**
-             * ChannelInitializer的init方法一旦Channel注册成功，那么该方法就会被调用，当这个方法返回之后,
-             * 该ChannleHandler就会从注册成功的Channel的Pipeline中被移除
+             * ChannelInitializer的init方法一旦在Channel注册成功，那么该方法就会被调用，当这个方法返回之后,
+             * 它就会从注册成功的Channel的Pipeline中被移除
              * @param ch            the {@link Channel} which was registered.
              * @throws Exception
              */
             @Override
             public void initChannel(Channel ch) throws Exception {
+                //每一个Channel都有一个自己所维护的ChannelPipeline
                 ChannelPipeline pipeline = ch.pipeline();
                 ChannelHandler handler = handler();
                 if (handler != null) {
@@ -234,11 +237,15 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
     /**
      * ServerBootsrapAcceptor的channelRead方法会在接受到客户端连接后触发
+     * 它在ServerBootstrap对NioServerSocektChannel初始化时，在Channel被创建后会被加入到它的ChannelPipeline中。
      */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;
+
+        //通过在Serverbootstrap中指定的childHandler，为ChannelInitlializer。
         private final ChannelHandler childHandler;
+
         private final Entry<ChannelOption<?>, Object>[] childOptions;
         private final Entry<AttributeKey<?>, Object>[] childAttrs;
 

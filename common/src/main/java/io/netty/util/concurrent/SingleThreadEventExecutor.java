@@ -53,9 +53,13 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
     };
 
+    //维护底层的线程状态
     private static final AtomicIntegerFieldUpdater<SingleThreadEventExecutor> STATE_UPDATER;
     private static final AtomicReferenceFieldUpdater<SingleThreadEventExecutor, ThreadProperties> PROPERTIES_UPDATER;
 
+    /**
+     * 对线程状态state和ThreadProperties进行原子化包装。
+     */
     static {
         AtomicIntegerFieldUpdater<SingleThreadEventExecutor> updater =
                 PlatformDependent.newAtomicIntegerFieldUpdater(SingleThreadEventExecutor.class, "state");
@@ -140,6 +144,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     /**
      * Interrupt the current running {@link Thread}.
+     * 中断EventLoop中的线程执行
      */
     protected void interruptThread() {
         Thread currentThread = thread;
@@ -653,11 +658,16 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (task == null) {
             throw new NullPointerException("task");
         }
-
+        /**
+         * 判断当前线程与EventLoop中的线程是否是同给一个线程
+         * 问题:为什么会出现当前执行线程和EventLoop中所维护的线程不一致的情况。
+         * 从哪里去找到原因？
+         */
         boolean inEventLoop = inEventLoop();
         if (inEventLoop) {
             addTask(task);
         } else {
+            //开启一个线程
             startThread();
             addTask(task);
             if (isShutdown() && removeTask(task)) {
@@ -708,7 +718,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
 
+    /**
+     * 创建当前EventLoop中所维护的线程
+     */
     private void startThread() {
+        //当线程未开启的时候，此时修改EventLoop的线程状态
         if (STATE_UPDATER.get(this) == ST_NOT_STARTED) {
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 doStartThread();
@@ -716,6 +730,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
     }
 
+    /**
+     * 启动线程的过程
+     */
     private void doStartThread() {
         assert thread == null;
         executor.execute(new Runnable() {

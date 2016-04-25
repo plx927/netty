@@ -86,6 +86,7 @@ public interface Channel extends AttributeMap, Comparable<Channel> {
 
     /**
      * Return the {@link EventLoop} this {@link Channel} was registered to.
+     * 这里个EventLoop是在Channel进行注册的时候指定的。
      */
     EventLoop eventLoop();
 

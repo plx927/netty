@@ -295,6 +295,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
         }
+        //真正完成端口绑定的操作
         return doBind(localAddress);
     }
 
@@ -302,17 +303,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * Channel对于端口绑定的异步实现处理
      * 1.先完成Channel在EventLoop中的注册
-     * 2.当注册成功后，才完成端口的绑定操作
+     * 2.当注册成功后，再完成端口的绑定操作，该绑定操作是异步执行的。
      *
      * @param localAddress 绑定的地址与端口信息
      * @return 返回ChannelFutrue,当事件处理完成之后，ChanneFutrue会得到通知。
      */
     private ChannelFuture doBind(final SocketAddress localAddress) {
         /*
-         * 初始化Channel，然后对Channel实现异步的注册,最后返回ChannelFutrue来表示Channel在EventLopp中注册的结果
-         *
+         * 初始化Channel，然后对Channel实现异步的注册,最后返回ChannelFuture来表示Channel在EventLoop中注册的结果
          * 注意到:Netty是先完成Channel在EventLoop中的注册操作，只有当Channel注册成功才会完成Channel的绑定操作
-         * 而将Channel向EventLoop中注册的过程又是异步处理的，因此在得到方法的方法结果后就需要对方法执行的结果反复检测。
+         * 而Channel向EventLoop中注册的过程又是异步处理的，因此在得到方法的返回结果后就需要对执行的结果反复检测。
          */
         final ChannelFuture regFuture = initAndRegister();
 
@@ -320,7 +320,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         final Channel channel = regFuture.channel();
 
         /*
-         * 判断是否有I/O异常发生,可以看到在initAndRegister的时候也判断了一次注册过程是否发生异常
+         * 判断是否有I/O异常发生,可以看到在initAndRegister执行的时候也判断了一次注册过程是否发生异常
          * 因此可以看到异步处理在获取到结果后总是反复的判断。
          */
         if (regFuture.cause() != null) {
@@ -329,6 +329,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         /**
          * 由于Netty中的所有I/O操作都是异步的，因此在执行下面的代码的时候我们并不知道是否已经执行完成
+         * 在通常情况下，此时已经将Channel注册到了EventLoopGroup中了。
          */
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
@@ -385,8 +386,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
             /*
              * ServerBootstrap的处理流程:
-             * 添加ServerBootstrapAcceptor到ChannelPieline
-             *
+             * 1.对ServerChannel本身进行初始化
+             * 2.添加ServerBootstrapAcceptor到ChannelPieline,它用于负责客户端的连接处理。
              */
             init(channel);
         } catch (Throwable t) {

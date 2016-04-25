@@ -298,6 +298,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         logger.info("Migrated " + nChannels + " channel(s) to the new Selector.");
     }
 
+    /**
+     * NioEventLoop执行多路复用器的代码
+     */
     @Override
     protected void run() {
         for (;;) {

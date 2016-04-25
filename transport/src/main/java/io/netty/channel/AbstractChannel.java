@@ -55,6 +55,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     //Channel的全局唯一标示
     private final ChannelId id;
 
+    /**
+     * Unsafe的操作不能由用户所直接调用，在Unsafe中所定义的方法是用于完成真正的传输操作
+     * 并且它只能在IO线程中执行。
+     *
+     */
     private final Unsafe unsafe;
 
     /**
@@ -488,9 +493,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
             /**
-             * 在NioServerSocketChannel注册的时候，这里会在注册的时候在EventLoop中调用该方法，将自己传递进来。
-             * this为SingleThreadEventLoop
-             * channel.unsafe().register(this, promise);
+             * 每一个Channel都会维护一个它所注册的EventLoop,这个EventLoop是在其注册的时候指定的。
              */
             AbstractChannel.this.eventLoop = eventLoop;
 
@@ -525,7 +528,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
-
+        /**
+         * Channel真正执行的注册的处理
+         * @param promise
+         */
         private void register0(ChannelPromise promise) {
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
