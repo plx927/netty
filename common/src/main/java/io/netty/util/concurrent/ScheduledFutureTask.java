@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.AtomicLong;
 @SuppressWarnings("ComparableImplementedButEqualsNotOverridden")
 final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFuture<V> {
     private static final AtomicLong nextTaskId = new AtomicLong();
+
+    //这个值在类的初始化阶段被确定
     private static final long START_TIME = System.nanoTime();
 
     static long nanoTime() {
@@ -77,6 +79,11 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
         return deadlineNanos;
     }
 
+
+    /**
+     * 计算延迟时间
+     * @return
+     */
     public long delayNanos() {
         return Math.max(0, deadlineNanos() - nanoTime());
     }

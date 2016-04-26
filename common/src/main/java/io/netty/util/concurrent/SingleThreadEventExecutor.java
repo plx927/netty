@@ -249,6 +249,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
     }
 
+    /**
+     * 从调度队列中取出任务放入到任务队列中进行执行
+     */
     private void fetchFromScheduledTaskQueue() {
         if (hasScheduledTasks()) {
             long nanoTime = AbstractScheduledEventExecutor.nanoTime();
@@ -345,6 +348,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      */
     protected boolean runAllTasks(long timeoutNanos) {
         fetchFromScheduledTaskQueue();
+
         Runnable task = pollTask();
         if (task == null) {
             return false;
@@ -384,8 +388,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     /**
      * Returns the amount of time left until the scheduled task with the closest dead line is executed.
+     * 根据当前时间计算出任务的调度任务的结束时间
      */
     protected long delayNanos(long currentTimeNanos) {
+        //从优先队列中获取到调度任务,返回调度的结束时间
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
         if (scheduledTask == null) {
             return SCHEDULE_PURGE_INTERVAL;
@@ -716,8 +722,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     }
 
     // ScheduledExecutorService implementation
-
-    private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
+    private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1); //调度时间的间隔
 
     private void startThread() {
         if (STATE_UPDATER.get(this) == ST_NOT_STARTED) {

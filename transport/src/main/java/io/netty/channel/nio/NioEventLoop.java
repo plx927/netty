@@ -308,6 +308,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     @Override
     protected void run() {
         for (;;) {
+            //为了防止Selector被频繁地调用wakeup方法，那么
             boolean oldWakenUp = wakenUp.getAndSet(false);
             try {
                 //从任务队列中获取任务，如果发现当前有任务,则直接执行Selector.selectNow()操作
@@ -351,6 +352,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
                 cancelledKeys = 0;
                 needsToSelectAgain = false;
+
+                //默认的IO处理速度为50
                 final int ioRatio = this.ioRatio;
                 if (ioRatio == 100) {
                     processSelectedKeys();
@@ -361,7 +364,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     processSelectedKeys();
 
                     final long ioTime = System.nanoTime() - ioStartTime;
-                    runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
+                    //指定处理任务的超时时间，如果任务的超时时间大于timeout时间，那么任务会被停止运行
+                    long timeoutNanos = ioTime * (100 - ioRatio) / ioRatio;
+                    System.out.println("TaskTimeOut:");
+                    /*
+
+                     */
+                    runAllTasks(timeoutNanos);
                 }
 
                 if (isShuttingDown()) {
@@ -610,14 +619,30 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+
+    /**
+     * 正常情况下，这里每一秒轮训一次
+     * @param oldWakenUp
+     * @throws IOException
+     */
     private void select(boolean oldWakenUp) throws IOException {
         Selector selector = this.selector;
         try {
+            //记录select的次数
             int selectCnt = 0;
+            //取到当前时间
             long currentTimeNanos = System.nanoTime();
+            //得到该次select轮训的总时间,正常情况下是:调度的时间为1秒。
             long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);
+
+
+            //currentTimeNaos:982709924218534,selectDeadLineNanos:982710924218534
+            //System.out.println("currentTimeNaos:"+currentTimeNanos+",selectDeadLineNanos:"+selectDeadLineNanos);
+
             for (;;) {
+                //这里计算的结果:第一次
                 long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;
+                //System.out.println("timeoutMillis:"+timeoutMillis);
                 if (timeoutMillis <= 0) {
                     if (selectCnt == 0) {
                         selector.selectNow();
