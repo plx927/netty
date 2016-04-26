@@ -64,7 +64,14 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     private volatile SocketAddress localAddress;
     private volatile SocketAddress remoteAddress;
+
+
+    /**
+     * EventLoop中维护着一个Selector，而一个Channel可以获取到它注册的那么Selector所在的EventLoop
+     */
     private volatile EventLoop eventLoop;
+
+
     private volatile boolean registered;
 
     /** Cache for the string representation of this channel */
@@ -393,6 +400,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return remoteAddress0();
         }
 
+
+        /**
+         * Channel的注册过程,其实也是一个骨架的实现
+         * @param eventLoop
+         * @param promise
+         */
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             if (eventLoop == null) {
@@ -408,15 +421,25 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            //对Channel中的EventLoop中进行赋值
             AbstractChannel.this.eventLoop = eventLoop;
 
+
+            /**
+             * 这里的注册没有像自己写的SelectableChannle.register(Selector)如此简单，
+             * 而是将其作为一个任务来投放到SingleThreadEventLoop来进行处理
+             */
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
                 try {
+                    //这里的Task会被添加到任务队列中来处理
                     eventLoop.execute(new OneTimeTask() {
                         @Override
                         public void run() {
+                            /**
+                             * 具体的注册任务执行逻辑
+                             */
                             register0(promise);
                         }
                     });
@@ -431,6 +454,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+
+        /**
+         * 具体分析Netty是如何对JDK中的Channle进行注册处理
+         * @param promise
+         */
         private void register0(ChannelPromise promise) {
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
@@ -439,6 +467,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+
+                /**
+                 * ServerSocketChannel具体的处理
+                 *
+                 */
                 doRegister();
                 neverRegistered = false;
                 registered = true;

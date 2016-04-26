@@ -313,7 +313,13 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(channel, GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        /**
+         * 分析注册的过程
+         * 1.通过管理的NioEventLoop来进行注册
+         */
         ChannelFuture regFuture = group().register(channel);
+
+
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();

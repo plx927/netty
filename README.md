@@ -24,3 +24,60 @@ Note that this is build-time requirement.  JDK 5 (for 3.x) or 6 (for 4.0+) is en
 ## Branches to look
 
 Development of all versions takes place in each branch whose name is identical to `<majorVersion>.<minorVersion>`.  For example, the development of 3.9 and 4.0 resides in [the branch '3.9'](https://github.com/netty/netty/tree/3.9) and [the branch '4.0'](https://github.com/netty/netty/tree/4.0) respectively.
+
+
+
+### Channel如何向EventLoopGroup(EventLoop)中进行注册的?
+查看SingleThreadEventLoop源码可以看到，将Channel向EventLoop中进行注册，其实本质是EventLoop封装了Channel向Selector注册的过程。 []()
+
+```
+    @Override
+    public ChannelFuture register(final Channel channel, final ChannelPromise promise) {
+        if (channel == null) {
+            throw new NullPointerException("channel");
+        }
+        if (promise == null) {
+            throw new NullPointerException("promise");
+        }
+        //这里除了注册，还对Channel的中EventLoop进行赋值
+        channel.unsafe().register(this, promise);
+        return promise;
+    }
+    
+    
+  
+          /**
+           * AbstractUnsafe.register方法。
+           *
+           * 这里的注册没有像自己写的SelectableChannle.register(Selector)如此简单，
+           * 而是将其作为一个任务来投放到SingleThreadEventLoop来进行处理
+           */
+            if (eventLoop.inEventLoop()) {
+                register0(promise);
+            } else {
+                try {
+                    //这里的Task会被添加到任务队列中来处理
+                    eventLoop.execute(new OneTimeTask() {
+                        @Override
+                        public void run() {
+                            /**
+                             * 具体的注册任务执行逻辑
+                             */
+                            register0(promise);
+                        }
+                    });
+                } catch (Throwable t) {
+                    ....
+                }
+            }
+        }
+        
+```
+
+
+
+画图描述出执行流程:
+
+
+
+

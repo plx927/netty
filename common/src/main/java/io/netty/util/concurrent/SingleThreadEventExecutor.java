@@ -36,6 +36,12 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 /**
  * Abstract base class for {@link EventExecutor}'s that execute all its submitted tasks in a single thread.
  *
+ * SingleThreadEventExecutor将所有的任务都在一个线程中执行
+ *
+ * 那么它如何做到的？
+ * 如果是我设计我会怎么做？
+ *
+ *
  */
 public abstract class SingleThreadEventExecutor extends AbstractScheduledEventExecutor {
 
@@ -65,11 +71,20 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
         STATE_UPDATER = updater;
     }
-
+    //使用一个线程池来进行处理
     private final EventExecutorGroup parent;
+
+    //任务队列
     private final Queue<Runnable> taskQueue;
+
+
+    //仔细分析这个线程的处理流程
     private final Thread thread;
+
+
     private final ThreadProperties threadProperties;
+
+
     private final Semaphore threadLock = new Semaphore(0);
     private final Set<Runnable> shutdownHooks = new LinkedHashSet<Runnable>();
     private final boolean addTaskWakesUp;
@@ -103,12 +118,19 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         this.parent = parent;
         this.addTaskWakesUp = addTaskWakesUp;
 
+
+
+        /*
+         * 基于线程工厂完成线程的创建
+         * 在线程中执行EventLoop
+         */
         thread = threadFactory.newThread(new Runnable() {
             @Override
             public void run() {
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    //执行EventLoop
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {
@@ -163,6 +185,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * {@link LinkedBlockingQueue} but if your sub-class of {@link SingleThreadEventExecutor} will not do any blocking
      * calls on the this {@link Queue} it may make sense to {@code @Override} this and return some more performant
      * implementation that does not support blocking operations at all.
+     *
      */
     protected Queue<Runnable> newTaskQueue() {
         return new LinkedBlockingQueue<Runnable>();
@@ -683,6 +706,12 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return isTerminated();
     }
 
+
+    /**
+     * Netty中的操作都以一个任务的形式进入到EventExecutor中来执行
+     *
+     * @param task
+     */
     @Override
     public void execute(Runnable task) {
         if (task == null) {
@@ -693,7 +722,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (inEventLoop) {
             addTask(task);
         } else {
+            //启动线程，在线程中执行EventLoop的
             startThread();
+            //将任务添加到阻塞队列中
             addTask(task);
             if (isShutdown() && removeTask(task)) {
                 reject();

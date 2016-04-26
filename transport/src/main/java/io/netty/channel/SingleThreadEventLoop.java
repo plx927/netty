@@ -48,6 +48,12 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
         return register(channel, new DefaultChannelPromise(channel, this));
     }
 
+    /**
+     * 将特定的Channel进行注册，这里的代码对看几遍
+     * @param channel
+     * @param promise
+     * @return
+     */
     @Override
     public ChannelFuture register(final Channel channel, final ChannelPromise promise) {
         if (channel == null) {

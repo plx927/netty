@@ -93,6 +93,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     /**
      * The NIO {@link Selector}.
+     * 每一个NioEventLoop底层维护着一个Selector
      */
     Selector selector;
     private SelectedSelectionKeySet selectedKeys;
@@ -120,6 +121,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         selector = openSelector();
     }
 
+    /**
+     * 对JDK中的SelectionKey集合进行了优化处理,默认使用的是HashSet
+     * @return
+     */
     private Selector openSelector() {
         final Selector selector;
         try {
@@ -302,13 +307,17 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     /**
      * NioEventLoop执行多路复用器的代码
-     * 该代码只在SingleThreadEventExecutor的doStartThread中被调用到
      * 调式该方法，发现一直在执行。
+     * 最终版本的4.36和这个版本存在不一样。
+     *
+     * 在SingleThreadEventLoop通过启动线程完成逻辑的处理。
+     * 在逻辑的处理过程中会去轮询任务队列进行处理。
+     *
      */
     @Override
     protected void run() {
         for (;;) {
-            //为了防止Selector被频繁地调用wakeup方法，那么
+            //为了防止Selector被频繁地调用wakeup方法，因此通过一个原子变量来进行控制
             boolean oldWakenUp = wakenUp.getAndSet(false);
             try {
                 //从任务队列中获取任务，如果发现当前有任务,则直接执行Selector.selectNow()操作
@@ -367,8 +376,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     //指定处理任务的超时时间，如果任务的超时时间大于timeout时间，那么任务会被停止运行
                     long timeoutNanos = ioTime * (100 - ioRatio) / ioRatio;
                     System.out.println("TaskTimeOut:");
-                    /*
 
+                    /*
+                     *
                      */
                     runAllTasks(timeoutNanos);
                 }
