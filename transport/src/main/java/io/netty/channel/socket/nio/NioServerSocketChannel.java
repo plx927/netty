@@ -131,6 +131,13 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         javaChannel().close();
     }
 
+
+    /**
+     * 接受客户端连接,通过调用栈来分析该方法的调用
+     * @param buf
+     * @return
+     * @throws Exception
+     */
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
         SocketChannel ch = javaChannel().accept();

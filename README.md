@@ -124,6 +124,8 @@ Development of all versions takes place in each branch whose name is identical t
         
 ```
 
+分析ServerSocketChannel在Selector注册成功后，后续的两个操作的处理。
+
 画图描述出执行流程:
 
 
@@ -133,6 +135,50 @@ Development of all versions takes place in each branch whose name is identical t
 
 分析了一个Channel如何在EventLoop中进行注册的过程，下面分析一个连接如何被Netty所Accept。
 
+
+
+### ChannelPipeline
+ChannelPipeline是存储ChannelHandler的列表集合，它可以处理和处理一个Channel的输入事件和输出操作。ChannelPipelie实现了一个更加先进**Intercepting Filter**模式，它可以让用户完全控制如何处理一个事件和在pipeline中
+中ChannelHandler如何进行互相交互。
+
+#### ChannelPipeline的创建
+每一个Channel都维护着单独的一个ChannelPipeline,并且在创建Channel的时候，ChannelPipeline会有Netty来帮助我们自动创建。
+这里我们直接看`AbstractChannel`,可以看到其在构造Channel的时候，同时创建ChannelPipeline。
+```
+    protected AbstractChannel(Channel parent) {
+        this.parent = parent;
+        unsafe = newUnsafe();
+        pipeline = new DefaultChannelPipeline(this);
+    }
+```
+
+#### IO事件如何在ChannelPipeine中处理流程    
+    
+
+
+
+ChannelHandlerContext
+
+
+ChannelHandler
+
+#### ChannelInitializer
+ChannelInitalizer是一个特殊的ChannelInboundHandler，它提供了一个简单的方式来当Channel在EventLoop中注册成功，就对进行初始化一个Channel，。
+实现通常被用在`Bootstrap#handler(ChannelHandler)`中或者`ServerBootstrap#handler(ChannelHandler)`或者`ServerBootstrap#childHandler(ChannelHandler)`来完成对一个Channel的Pipeline的创建。
+注意到`ChannelInitalizer`使用@Sharable注解来进行标注，因此我们自己在定义ChannelInitalizer必须是线程安全并且可重用的。
+通过源码更深层次的理解为什么说当Channel在EventLoop中注册完成后，来完成对Channel的初始化。
+```
+    //当Channel在EventLoop中执行成功后(注册的过程其实本质上就是在EventLoop.thread中所执行的)
+    public final void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        //通过ChannelContext来获取当前注册的Channel
+        initChannel((C) ctx.channel());
+        //一旦注册成功，ChannelInitlizer会从ChannelPipeline中所移除
+        ctx.pipeline().remove(this);
+        //触发Channel的注册事件
+        ctx.fireChannelRegistered();
+    }
+    
+```
 
 
 对比Netty与Cobar之间的线程模型:

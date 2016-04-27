@@ -57,7 +57,10 @@ final class DefaultChannelPipeline implements ChannelPipeline {
 
     final AbstractChannel channel;
 
+    //io.netty.channel.DefaultChannelPipeline$HeadContext
     final AbstractChannelHandlerContext head;
+
+    //io.netty.channel.DefaultChannelPipeline$TailContext
     final AbstractChannelHandlerContext tail;
 
     private Map<EventExecutorGroup, EventExecutor> childExecutors;
@@ -78,15 +81,23 @@ final class DefaultChannelPipeline implements ChannelPipeline {
      */
     private boolean registered;
 
+    /**
+     * ChannelPipeline在创建Channel的时候会自动创建
+     * @param channel
+     */
     public DefaultChannelPipeline(AbstractChannel channel) {
         if (channel == null) {
             throw new NullPointerException("channel");
         }
         this.channel = channel;
 
+        //创建ChannelHandlerContext作为尾部
         tail = new TailContext(this);
+
+        //创建ChannelHandlerContext作为头部
         head = new HeadContext(this);
 
+        //构成链表
         head.next = tail;
         tail.prev = head;
     }
@@ -179,6 +190,15 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return addLast(null, name, handler);
     }
 
+    /**
+     * 添加ChannelHandler
+     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
+     *                 methods
+     * @param name     the name of the handler to append
+     * @param handler  the handler to append
+     *
+     * @return
+     */
     @Override
     public ChannelPipeline addLast(EventExecutorGroup group, final String name, ChannelHandler handler) {
         final EventExecutor executor;
@@ -188,14 +208,27 @@ final class DefaultChannelPipeline implements ChannelPipeline {
             checkDuplicateName(name);
             checkMultiplicity(handler);
 
+            /**
+             * 创建DefaultChannelHandlerContext,分析ChannelHandlerContext的过程。
+             */
             newCtx = newContext(group, name, handler);
+
+            //判断Channel是否已经执行
             executor = executorSafe(newCtx.executor);
 
             // If the executor is null it means that the channel was not registered on an eventloop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
+            //当Channel未注册的过程处理
             if (executor == null) {
+                /**
+                 *  当Channel未注册的时候,将ChannelContext添加到DefaultChannelPipeline中，
+                 *  一旦Channel注册成功，会在EventLoop中执行一个任务，而任务中具体执行的逻辑是{@link PendingHandlerAddedTask#callHandlerAdded0(AbstractChannelHandlerContext)}
+                 */
                 addLast0(newCtx);
+                /**
+                 * 仔细分析这段代码
+                 */
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
@@ -220,6 +253,14 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+
+    /**
+     * 构建ChannelContext之间的关系
+     * head <-- tail
+     * 插入一个新的ChannelHandlerContext
+     * head <-- newCtx <-- tail
+     * @param newCtx
+     */
     private void addLast0(AbstractChannelHandlerContext newCtx) {
         AbstractChannelHandlerContext prev = tail.prev;
         newCtx.prev = prev;
@@ -291,6 +332,16 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return addAfter(null, baseName, name, handler);
     }
 
+    /**
+     * 添加ChannelHandler到ChannelPipeline的尾部
+     * @param group     the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
+     *                  methods
+     * @param baseName  the name of the existing handler
+     * @param name      the name of the handler to insert after
+     * @param handler   the handler to insert after
+     *
+     * @return
+     */
     @Override
     public ChannelPipeline addAfter(
             EventExecutorGroup group, String baseName, final String name, ChannelHandler handler) {
@@ -335,6 +386,10 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         }
         return this;
     }
+
+
+
+
 
     private static void addAfter0(AbstractChannelHandlerContext ctx, AbstractChannelHandlerContext newCtx) {
         newCtx.prev = ctx;
@@ -393,6 +448,12 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+
+    /**
+     * 为没有指定名字ChannelHandler生成名字
+     * @param handler
+     * @return
+     */
     private String generateName(ChannelHandler handler) {
         Map<Class<?>, String> cache = nameCaches.get();
         Class<?> handlerType = handler.getClass();
@@ -590,6 +651,11 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         oldCtx.next = newCtx;
     }
 
+
+    /**
+     * 检测Channel的多样行
+     * @param handler
+     */
     private static void checkMultiplicity(ChannelHandler handler) {
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
@@ -602,6 +668,10 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 在EventLoop中进行的Handler添加的处理逻辑
+     * @param ctx
+     */
     private void callHandlerAdded0(final AbstractChannelHandlerContext ctx) {
         try {
             ctx.handler().handlerAdded(ctx);
@@ -1121,6 +1191,9 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         // This should only called from within the EventLoop.
         assert channel.eventLoop().inEventLoop();
 
+        /**
+         * 一个特殊的Runnable任务
+         */
         final PendingHandlerCallback pendingHandlerCallbackHead;
         synchronized (this) {
             assert !registered;
@@ -1339,11 +1412,13 @@ final class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         void execute() {
+            //获取到EventLoop
             EventExecutor executor = ctx.executor();
             if (executor.inEventLoop()) {
                 callHandlerAdded0(ctx);
             } else {
                 try {
+                    //再包装一个任务放到队列中进行处理
                     executor.execute(this);
                 } catch (RejectedExecutionException e) {
                     if (logger.isWarnEnabled()) {

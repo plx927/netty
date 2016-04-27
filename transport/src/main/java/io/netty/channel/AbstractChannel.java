@@ -456,6 +456,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
 
         /**
+         * 这个方法具体会以一个任务的形式被添加到EventLoop的任务队列中
          * 具体分析Netty是如何对JDK中的Channle进行注册处理
          * @param promise
          */
@@ -470,12 +471,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
                 /**
                  * ServerSocketChannel具体的处理
-                 *
+                 * 这里真正完成JDK的ServerSocketChannle到Selector的注册过程。
                  */
                 doRegister();
                 neverRegistered = false;
                 registered = true;
 
+
+                /**
+                 * 分析第一次的注册过程，在完成注册之前，将所的ChannelHandler添加到到PipeLine中。
+                 */
                 if (firstRegistration) {
                     // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
                     // that were added before the registration was done.
@@ -483,7 +488,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 }
 
                 safeSetSuccess(promise);
+
+                /*
+                 * 通过ChannelPipeLine触发Channel注册成功的事件,
+                 * 可以在ServerBootstrapAcceptor中添加注册方法进行测试。
+                 */
                 pipeline.fireChannelRegistered();
+
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
                 if (isActive()) {

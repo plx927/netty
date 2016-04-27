@@ -175,6 +175,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(childAttrs.size()));
         }
 
+        /**
+         * 具体分析ChannelPipeline的添加处理
+         */
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(Channel ch) throws Exception {
@@ -226,6 +229,13 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             this.childHandler = childHandler;
             this.childOptions = childOptions;
             this.childAttrs = childAttrs;
+        }
+
+        @Override
+        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+            super.channelRegistered(ctx);
+            Channel channel = ctx.channel();
+            System.out.println(channel.getClass().getName()+" register Successful!");
         }
 
         @Override

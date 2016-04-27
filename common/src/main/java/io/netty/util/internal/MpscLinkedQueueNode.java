@@ -41,6 +41,10 @@ public abstract class MpscLinkedQueueNode<T> {
         return next;
     }
 
+    /**
+     * 从Java内存模型的8个原子指令角度分析
+     * @param newNext
+     */
     final void setNext(final MpscLinkedQueueNode<T> newNext) {
         // Similar to 'next = newNext', but slightly faster (storestore vs loadstore)
         // See: http://robsjava.blogspot.com/2013/06/a-faster-volatile.html
