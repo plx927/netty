@@ -81,6 +81,7 @@ public interface Channel extends AttributeMap, Comparable<Channel> {
 
     /**
      * Return the {@link EventLoop} this {@link Channel} was registered to.
+     * 返回Channel所注册的EventLoop。
      */
     EventLoop eventLoop();
 
@@ -88,7 +89,7 @@ public interface Channel extends AttributeMap, Comparable<Channel> {
      * Returns the parent of this channel.
      *
      * @return the parent channel.
-     *         {@code null} if this channel does not have a parent channel.
+     * C        {@code null} if this channel does not have a parent channel.
      */
     Channel parent();
 
@@ -165,6 +166,8 @@ public interface Channel extends AttributeMap, Comparable<Channel> {
 
     /**
      * Return the assigned {@link ChannelPipeline}.
+     * 返回Channel所关联的Pipeline,每个Channel在创建的时候都会创建对应的ChannelPipeline。
+     * 通过ChannelPipeline也可以获取到其所绑定的Channel。
      */
     ChannelPipeline pipeline();
 

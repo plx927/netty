@@ -335,7 +335,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator {
 
     /**
      * Returns {@code true} if the calling {@link Thread} has a {@link ThreadLocal} cache for the allocated
-     * buffers.
+     * buffers.\
      */
     @Deprecated
     public boolean hasThreadLocalCache() {

@@ -130,6 +130,7 @@ public interface ChannelHandlerContext
 
     /**
      * Return the {@link Channel} which is bound to the {@link ChannelHandlerContext}.
+     * 返回绑定在当前Channel中的ChannelHandlerContext。
      */
     Channel channel();
 

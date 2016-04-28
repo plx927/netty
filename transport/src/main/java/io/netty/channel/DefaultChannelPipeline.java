@@ -219,7 +219,8 @@ final class DefaultChannelPipeline implements ChannelPipeline {
             // If the executor is null it means that the channel was not registered on an eventloop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
-            //当Channel未注册的过程处理
+
+            //当Channel未注册的过程处理,即在ChannelPipeline添加ChannelInitlizer
             if (executor == null) {
                 /**
                  *  当Channel未注册的时候,将ChannelContext添加到DefaultChannelPipeline中，
@@ -1216,9 +1217,16 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 当Channel未注册是
+     * @param ctx
+     * @param added
+     */
     private void callHandlerCallbackLater(AbstractChannelHandlerContext ctx, boolean added) {
         assert !registered;
-
+        /**
+         * 根据参数创建一个添加Handler或者移除Handler的任务
+         */
         PendingHandlerCallback task = added ? new PendingHandlerAddedTask(ctx) : new PendingHandlerRemovedTask(ctx);
         PendingHandlerCallback pending = pendingHandlerCallbackHead;
         if (pending == null) {

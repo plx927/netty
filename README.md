@@ -181,4 +181,163 @@ ChannelInitalizer是一个特殊的ChannelInboundHandler，它提供了一个简
 ```
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Netty4.0.0.Final中缓冲区内存泄漏问题
+
+```
+    PooledByteBufAllocator allocator = new PooledByteBufAllocator(true);
+    //通过池化的缓冲区进行内容directBuffer的创建
+    ByteBuf ioBuffer = allocator.ioBuffer(1024);
+
+```
+##### 获取一个DirectBuffer过程分析
+
+1. 从ThreadLocal中获取一个PoolThreadCache,每一个PoolThreadCache中维护分别维护两个东西
+```
+    final PoolArena<byte[]> heapArena;
+    final PoolArena<ByteBuffer> directArena;
+
+```
+
+2. 从ThreadPoolCache中获取directArena，根据directArena进行缓冲区的分配。
+
+```
+   PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
+        PooledByteBuf<T> buf = newByteBuf(maxCapacity);
+        allocate(cache, buf, reqCapacity);
+        return buf;
+    }
+```
+
+3. 根据DirectArena来根据指定大小创建缓冲区
+
+```
+    protected PooledByteBuf<ByteBuffer> newByteBuf(int maxCapacity) {
+        if (HAS_UNSAFE) {
+            return PooledUnsafeDirectByteBuf.newInstance(maxCapacity);
+        } else {
+            return PooledDirectByteBuf.newInstance(maxCapacity);
+        }
+    }
+
+```
+
+```
+ 
+    static PooledUnsafeDirectByteBuf newInstance(int maxCapacity) {
+        PooledUnsafeDirectByteBuf buf = RECYCLER.get();
+        buf.maxCapacity(maxCapacity);
+        return buf;
+    }
+
+```
+
+`Recycle`get的具体实现:
+
+```
+ public final T get() {
+        Stack<T> stack = threadLocal.get();
+        T o = stack.pop();
+        if (o == null) {
+            o = newObject(stack);
+        }
+        return o;
+    }
+
+```
+
+
+```
+    @SuppressWarnings("unchecked")
+    private void recycle() {
+        Recycler.Handle recyclerHandle = this.recyclerHandle;
+        if (recyclerHandle != null) {
+            setRefCnt(1);
+            ((Recycler<Object>) recycler()).recycle(this, recyclerHandle);
+        }
+    }
+
+```
+
+
+
+
+
+第一步找到write流程里在何处buf.release的
+第二步分析为何release了还泄漏
+
+将缓冲区通过ChannelOutboundBuffer转换成MessageList
+
+```
+ void addMessage(Object msg, ChannelPromise promise) {
+        int tail = this.tail;
+        MessageList msgs = messages[tail];
+        if (msgs == null) {
+            messages[tail] = msgs = MessageList.newInstance();
+        }
+
+        msgs.add(msg, promise);
+
+        int size = channel.calculateMessageSize(msg);
+        messageListSizes[tail] += size;
+        incrementPendingOutboundBytes(size);
+    }
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 对比Netty与Cobar之间的线程模型:

@@ -490,8 +490,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 safeSetSuccess(promise);
 
                 /*
-                 * 通过ChannelPipeLine触发Channel注册成功的事件,
-                 * 可以在ServerBootstrapAcceptor中添加注册方法进行测试。
+                 * 通过ChannelPipeLine触发Channel注册成功的事件,此时可以先触发ChannelPipeline中的ChannelInitlizer，
+                 * 通过ChannelInitlizer的init方法可以在ServerBootstrapAcceptor中添加注册方法进行测试。
                  */
                 pipeline.fireChannelRegistered();
 
