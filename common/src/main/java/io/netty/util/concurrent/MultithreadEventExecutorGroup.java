@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Abstract base class for {@link EventExecutorGroup} implementations that handles their tasks with multiple threads at
  * the same time.
+ * 4.0版本里面我们无法看到线程池，在Netty5.x版本中，是可以看到newDefaultExecutorService方法的存在，底层默认使用ForkJoinPool线程池来做处理。
  */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
 
