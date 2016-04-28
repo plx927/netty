@@ -375,9 +375,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     final long ioTime = System.nanoTime() - ioStartTime;
                     //指定处理任务的超时时间，如果任务的超时时间大于timeout时间，那么任务会被停止运行
                     long timeoutNanos = ioTime * (100 - ioRatio) / ioRatio;
-                    System.out.println("TaskTimeOut:");
 
-                    /*
+                    //logger.info("timeOutNaos:{}",timeoutNanos);
+
+                    /**
                      *
                      */
                     runAllTasks(timeoutNanos);

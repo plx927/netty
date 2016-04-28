@@ -98,6 +98,9 @@ public class DefaultThreadFactory implements ThreadFactory {
 
     @Override
     public Thread newThread(Runnable r) {
+        /**
+         * 创建线程的名字:nioEventLoopGroup-2-1
+         */
         Thread t = newThread(new DefaultRunnableDecorator(r), prefix + nextId.incrementAndGet());
         try {
             if (t.isDaemon()) {

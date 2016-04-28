@@ -96,9 +96,15 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap impleme
         return name;
     }
 
+
+
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
+        //找到当前的ChannelHandlerContext的下一个,
         final AbstractChannelHandlerContext next = findContextInbound();
+        /**
+         * 获取当前ChannelHandlerContext中的EventLoop.
+         */
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeChannelRegistered();
@@ -113,6 +119,9 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap impleme
         return this;
     }
 
+    /**
+     * 通过ChannelHandlerContext来触发其维护的ChannleHandler的注册成功事件
+     */
     private void invokeChannelRegistered() {
         try {
             ((ChannelInboundHandler) handler()).channelRegistered(this);
@@ -795,6 +804,10 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap impleme
         return true;
     }
 
+    /**
+     * 根据当前的ChannelHandlerContext找到它的下一个。
+     * @return
+     */
     private AbstractChannelHandlerContext findContextInbound() {
         AbstractChannelHandlerContext ctx = this;
         do {

@@ -29,6 +29,13 @@ public class DiscardServerHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     @Override
+    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        System.out.println("channelRegisterSuccess");
+    }
+
+
+
+    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         // Close the connection when an exception is raised.
         cause.printStackTrace();

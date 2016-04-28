@@ -709,7 +709,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     /**
      * Netty中的操作都以一个任务的形式进入到EventExecutor中来执行
-     *
+     * 这部分代码需要认真调式
      * @param task
      */
     @Override
@@ -731,6 +731,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             }
         }
 
+        //默认在添加完一个任务之后会添加一个空任务
         if (!addTaskWakesUp && wakesUpForTask(task)) {
             wakeup(inEventLoop);
         }

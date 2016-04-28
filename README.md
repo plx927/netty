@@ -45,87 +45,121 @@ Development of all versions takes place in each branch whose name is identical t
     
     
   
-          /**
-           * AbstractUnsafe.register方法。
-           *
-           * 这里的注册没有像自己写的SelectableChannle.register(Selector)如此简单，
-           * 而是将其作为一个任务来投放到SingleThreadEventLoop来进行处理
-           */
-            if (eventLoop.inEventLoop()) {
-                register0(promise);
-            } else {
-                try {
-                    //这里的Task会被添加到任务队列中来处理
-                    eventLoop.execute(new OneTimeTask() {
-                        @Override
-                        public void run() {
-                            /**
-                             * 具体的注册任务执行逻辑
-                             */
-                            register0(promise);
-                        }
-                    });
-                } catch (Throwable t) {
-                    ....
-                }
+      /**
+       * AbstractUnsafe.register方法。
+       *
+       * 这里的注册没有像自己写的SelectableChannle.register(Selector)如此简单，
+       * 而是将其作为一个任务来投放到SingleThreadEventLoop来进行处理
+       */
+        if (eventLoop.inEventLoop()) {
+            register0(promise);
+        } else {
+            try {
+                //这里的Task会被添加到任务队列中来处理
+                eventLoop.execute(new OneTimeTask() {
+                    @Override
+                    public void run() {
+                        /**
+                         * 具体的注册任务执行逻辑
+                         */
+                        register0(promise);
+                    }
+                });
+            } catch (Throwable t) {
+                ....
             }
         }
+    }
+    
         
-        
-        /**
-         * 具体分析Netty是如何对JDK中的Channle进行注册处理
-         * @param promise
-         */
-        private void register0(ChannelPromise promise) {
-            try {
-                // check if the channel is still open as it could be closed in the mean time when the register
-                // call was outside of the eventLoop
-                if (!promise.setUncancellable() || !ensureOpen(promise)) {
-                    return;
-                }
-                boolean firstRegistration = neverRegistered;
-
-                /**
-                 * ServerSocketChannel具体的处理
-                 *
-                 */
-                doRegister();
-                neverRegistered = false;
-                registered = true;
-
-                if (firstRegistration) {
-                    // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
-                    // that were added before the registration was done.
-                    pipeline.callHandlerAddedForAllHandlers();
-                }
-
-                safeSetSuccess(promise);
-                pipeline.fireChannelRegistered();
-                // Only fire a channelActive if the channel has never been registered. This prevents firing
-                // multiple channel actives if the channel is deregistered and re-registered.
-                if (isActive()) {
-                    if (firstRegistration) {
-                        pipeline.fireChannelActive();
-                    } else if (config().isAutoRead()) {
-                        // This channel was registered before and autoRead() is set. This means we need to begin read
-                        // again so that we process inbound data.
-                        //
-                        // See https://github.com/netty/netty/issues/4805
-                        beginRead();
-                    }
-                }
-            } catch (Throwable t) {
-                // Close the channel directly to avoid FD leak.
-                closeForcibly();
-                closeFuture.setClosed();
-                safeSetFailure(promise, t);
+    /**
+     * 具体分析Netty是如何对JDK中的Channle进行注册处理
+     * @param promise
+     */
+    private void register0(ChannelPromise promise) {
+        try {
+            // check if the channel is still open as it could be closed in the mean time when the register
+            // call was outside of the eventLoop
+            if (!promise.setUncancellable() || !ensureOpen(promise)) {
+                return;
             }
-        }        
-        
+            boolean firstRegistration = neverRegistered;
+
+            /**
+             * ServerSocketChannel具体的处理
+             *
+             */
+            doRegister();
+            neverRegistered = false;
+            registered = true;
+
+            if (firstRegistration) {
+                // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
+                // that were added before the registration was done.
+                pipeline.callHandlerAddedForAllHandlers();
+            }
+
+            safeSetSuccess(promise);
+            pipeline.fireChannelRegistered();
+            // Only fire a channelActive if the channel has never been registered. This prevents firing
+            // multiple channel actives if the channel is deregistered and re-registered.
+            if (isActive()) {
+                if (firstRegistration) {
+                    pipeline.fireChannelActive();
+                } else if (config().isAutoRead()) {
+                    // This channel was registered before and autoRead() is set. This means we need to begin read
+                    // again so that we process inbound data.
+                    //
+                    // See https://github.com/netty/netty/issues/4805
+                    beginRead();
+                }
+            }
+        } catch (Throwable t) {
+            // Close the channel directly to avoid FD leak.
+            closeForcibly();
+            closeFuture.setClosed();
+            safeSetFailure(promise, t);
+        }
+    }        
+    
 ```
 
-分析ServerSocketChannel在Selector注册成功后，后续的两个操作的处理。
 
+#### SingleThreadEventExecutor对任务的处理
+```
+    /**
+         * Netty中的操作都以一个任务的形式进入到EventExecutor中来执行
+         * 这部分代码需要认真调式
+         * @param task
+         */
+        @Override
+        public void execute(Runnable task) {
+            if (task == null) {
+                throw new NullPointerException("task");
+            }
+    
+            boolean inEventLoop = inEventLoop();
+            if (inEventLoop) {
+                addTask(task);
+            } else {
+                //启动线程，在线程中执行EventLoop的
+                startThread();
+                //将任务添加到阻塞队列中
+                addTask(task);
+                if (isShutdown() && removeTask(task)) {
+                    reject();
+                }
+            }
+    
+            //默认在添加完一个任务之后会添加一个空任务
+            if (!addTaskWakesUp && wakesUpForTask(task)) {
+                wakeup(inEventLoop);
+            }
+        }
+
+```
+
+#### 分析ServerSocketChannel在Selector注册成功后，后续的两个操作的处理。
 画图描述出执行流程:
 
 
@@ -133,13 +167,17 @@ Development of all versions takes place in each branch whose name is identical t
 
 
 
-分析了一个Channel如何在EventLoop中进行注册的过程，下面分析一个连接如何被Netty所Accept。
+#### 分析一个Channel如何在EventLoop中进行注册的过程，下面分析一个连接如何被Netty所Accept。
+
+
+
+
 
 
 
 ### ChannelPipeline
-ChannelPipeline是存储ChannelHandler的列表集合，它可以处理和处理一个Channel的输入事件和输出操作。ChannelPipelie实现了一个更加先进**Intercepting Filter**模式，它可以让用户完全控制如何处理一个事件和在pipeline中
-中ChannelHandler如何进行互相交互。
+ChannelPipeline是存储ChannelHandler的列表集合，它可以处理和拦截一个Channel的输入事件和输出操作。ChannelPipelie实现了一个更加先进**Intercepting Filter**模式，
+它可以让用户完全控制如何处理一个事件以及在pipeline中ChannelHandler如何进行互相交互。
 
 #### ChannelPipeline的创建
 每一个Channel都维护着单独的一个ChannelPipeline,并且在创建Channel的时候，ChannelPipeline会有Netty来帮助我们自动创建。
@@ -152,15 +190,139 @@ ChannelPipeline是存储ChannelHandler的列表集合，它可以处理和处理
     }
 ```
 
-#### IO事件如何在ChannelPipeine中处理流程    
+通过ChannelPipeline也可以获取到它所附属的Channel。
+```
+    /**
+     * Returns the {@link Channel} that this pipeline is attached to.
+     * @return the channel. {@code null} if this pipeline is not attached yet.
+     *
+     * 返回当前Pipeline的Channel。
+     */
+    Channel channel();  
+      
+      
+      /**
+       * Returns the {@link List} of the handler names.
+       * 通过Pipeline可以获取所有的ChannelHandler的名字
+       */
+      List<String> names();
     
+    /**
+     * Converts this pipeline into an ordered {@link Map} whose keys are
+     * handler names and whose values are handlers.
+     * 将ChannelPipeline装换成一个有序的Map,key为ChannelHandler的名字，值为具体的ChannelHandler
+     */
+    Map<String, ChannelHandler> toMap();  
+```
+通过`names()`和`toMap()`方法可以用于测试出当前ChannelPipeline到底存储了哪些ChannelHandler。
+
+##### 分析DefaultChannelPipeline对ChannelHandler的添加处理
+```
+    /**
+     * Should be called before {@link #fireChannelRegistered()} is called the first time.
+     */
+    void callHandlerAddedForAllHandlers() {
+        // This should only called from within the EventLoop.
+        assert channel.eventLoop().inEventLoop();
+
+        /**
+         * 一个特殊的Runnable任务
+         */
+        final PendingHandlerCallback pendingHandlerCallbackHead;
+        synchronized (this) {
+            assert !registered;
+
+            // This Channel itself was registered.
+            registered = true;
+
+            pendingHandlerCallbackHead = this.pendingHandlerCallbackHead;
+            // Null out so it can be GC'ed.
+            this.pendingHandlerCallbackHead = null;
+        }
+
+        // This must happen outside of the synchronized(...) block as otherwise handlerAdded(...) may be called while
+        // holding the lock and so produce a deadlock if handlerAdded(...) will try to add another handler from outside
+        // the EventLoop.
+
+        //分析如果在同步代码块中产生死锁的原因。
+        PendingHandlerCallback task = pendingHandlerCallbackHead;
+        while (task != null) {
+            task.execute();
+            task = task.next;
+        }
+    }
+
+```
 
 
 
-ChannelHandlerContext
 
 
-ChannelHandler
+
+#### IO事件如何在ChannelPipeine中处理流程    
+在分析一个IO事件如何在ChannelPipeline中进行流动传输之前，我们需要先来看一看ChannelHandlerContext,因为ChannelPipeline、Channel、ChannelHandler、ChannelHandlerContext，这几个接口很容易让人犯晕，而他们之间的关系
+又是密切相关的，因此在这里先对ChannelHandlerContext进行分析，对于后面分析IO事件在ChannelPipeline中应该会有更好的理解。
+
+#### ChannelHandlerContext
+```
+    AbstractChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutor executor, String name,
+                                  boolean inbound, boolean outbound) {
+        if (name == null) {
+            throw new NullPointerException("name");
+        }
+        this.pipeline = pipeline;
+        this.name = name;
+        this.executor = executor;
+        this.inbound = inbound;
+        this.outbound = outbound;
+    }
+    
+    final class DefaultChannelHandlerContext extends AbstractChannelHandlerContext {
+    
+        private final ChannelHandler handler;
+    
+        DefaultChannelHandlerContext(
+                DefaultChannelPipeline pipeline, EventExecutor executor, String name, ChannelHandler handler) {
+            super(pipeline, executor, name, isInbound(handler), isOutbound(handler));
+            if (handler == null) {
+                throw new NullPointerException("handler");
+            }
+            this.handler = handler;
+        }
+
+```
+通过ChannelHandlerContext的构造方法可以看到，每一个ChannelHandlerContext中都维护着一个ChannelPipeline，同时还维护着一个Eventloop，并且ChannelHandlerContext还维护着一个ChannelHandler。
+
+分析ChannelHandlerContext如何进行事件传播,Netty对于ChannleHandlerContext的命名说实话真的不是很好，很容易让人以为ChannelHandlerContext是全局唯一的一个东西，
+实际上ChannelHandlerContext是ChannelPipeline是维护的`过滤链`的节点，在DefaultChannelPipeline中，底层就维护了`过滤链`的头部和尾部,而每个添加到ChannelPipeline中的ChannelHandler，它们
+都是通过ChannelHandlerContext来进行一层包装，在进行IO事件传播的时候，通过`ChannelHandlerContext`的`fireXXX`方法来进行事件传播，下面选择Channel事件注册成功它是如何进行传播的。
+```
+        @Override
+        public ChannelHandlerContext fireChannelRegistered() {
+            //找到当前的ChannelHandlerContext的一个节点
+            final AbstractChannelHandlerContext next = findContextInbound();
+            
+            //获取当前ChannelHandlerContext中的EventLoop.
+            //判断当前的执行线程与EventLoop中的线程是否是同一个
+            EventExecutor executor = next.executor();
+            if (executor.inEventLoop()) {
+                next.invokeChannelRegistered();
+            } else {
+                executor.execute(new OneTimeTask() {
+                    @Override
+                    public void run() {
+                        next.invokeChannelRegistered();
+                    }
+                });
+            }
+            return this;
+        }
+        
+        
+
+```
+
+#### ChannelHandler
 
 #### ChannelInitializer
 ChannelInitalizer是一个特殊的ChannelInboundHandler，它提供了一个简单的方式来当Channel在EventLoop中注册成功，就对进行初始化一个Channel，。

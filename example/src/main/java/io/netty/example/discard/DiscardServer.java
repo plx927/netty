@@ -35,7 +35,7 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
 public final class DiscardServer {
 
     static final boolean SSL = System.getProperty("ssl") != null;
-    static final int PORT = Integer.parseInt(System.getProperty("port", "8009"));
+    static final int PORT = Integer.parseInt(System.getProperty("port", "8008"));
 
     public static void main(String[] args) throws Exception {
         // Configure SSL.

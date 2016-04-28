@@ -28,6 +28,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.util.AttributeKey;
+import io.netty.util.concurrent.EventExecutorGroup;
 import io.netty.util.internal.OneTimeTask;
 import io.netty.util.internal.StringUtil;
 import io.netty.util.internal.logging.InternalLogger;
@@ -146,6 +147,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return childGroup;
     }
 
+
+    /**
+     * 对xIOServerSocketChannel进行初始化
+     * @param channel
+     * @throws Exception
+     */
     @Override
     void init(Channel channel) throws Exception {
         final Map<ChannelOption<?>, Object> options = options();
@@ -162,6 +169,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
         }
 
+        /**
+         * 重要:获取到ChannelPipeline,具体实现为DefaultChannelPipeline
+         */
         ChannelPipeline p = channel.pipeline();
 
         final EventLoopGroup currentChildGroup = childGroup;
@@ -177,6 +187,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
         /**
          * 具体分析ChannelPipeline的添加处理
+         * 分析{@link io.netty.channel.DefaultChannelPipeline#addLast(EventExecutorGroup, String, ChannelHandler)}的处理流程
+         *
+         * 1.创建对应的ChannelHandlerContext(节点)来完成对Channdler的包装
+         * 2.将新建的节点插入到tail节点的前面
+         * 3.创建添加ChannelHandler的回调任务
          */
         p.addLast(new ChannelInitializer<Channel>() {
             @Override

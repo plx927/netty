@@ -47,6 +47,10 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
         }
 
+
+        /**
+         * NioEventLoopGroup底层没有直接维护一个线程工厂
+         */
         if (threadFactory == null) {
             threadFactory = newDefaultThreadFactory();
         }
@@ -101,6 +105,10 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         }
     }
 
+    /**
+     * 线程工厂，用于创建EventLoop中的线程
+     * @return
+     */
     protected ThreadFactory newDefaultThreadFactory() {
         return new DefaultThreadFactory(getClass());
     }

@@ -582,6 +582,9 @@ public interface ChannelPipeline
      * Returns the {@link Channel} that this pipeline is attached to.
      *
      * @return the channel. {@code null} if this pipeline is not attached yet.
+     *
+     * 返回当前Pipeline的Channel。
+     *
      */
     Channel channel();
 

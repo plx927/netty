@@ -268,6 +268,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(localAddress);
     }
 
+
+    /**
+     * 执行Channel的端口绑定
+     * @param localAddress
+     * @return
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
@@ -303,7 +309,15 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+
+    /**
+     * 对Channel进行初始化，并且完成Channel的注册
+     * 这里无论是ServerSocketChannel还是SocketChannel都会通用执行。
+     * 具体的init()方法的实现需要根据ServerSocketChannel还是SocketChannel来实现。
+     * @return
+     */
     final ChannelFuture initAndRegister() {
+        //通过Channel工厂完成Channel的创建,基于反射。
         final Channel channel = channelFactory().newChannel();
         try {
             init(channel);
@@ -315,7 +329,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         /**
          * 分析注册的过程
-         * 1.通过管理的NioEventLoop来进行注册
+         * 1.通过管理的XIOEventLoop来进行注册
+         * 2.通过Channel.unsafe().register(eventLoop);
+         * 3.将注册操作封装成一个task，放入到当前EventLoop中的阻塞队列来进行处理。
          */
         ChannelFuture regFuture = group().register(channel);
 
@@ -342,6 +358,15 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     abstract void init(Channel channel) throws Exception;
 
+    /**
+     * 完成端口绑定操作
+     * 注意下面的描述:该方法会在channelRegistered执行前被调用,让用户有机会在channelRegistered方法中执行
+     *
+     * @param regFuture
+     * @param channel
+     * @param localAddress
+     * @param promise
+     */
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
             final SocketAddress localAddress, final ChannelPromise promise) {
@@ -447,6 +472,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return buf.toString();
     }
 
+
+    /**
+     * 基于反射的方式来创建Channel的Channel工厂
+     * @param <T>
+     */
     private static final class BootstrapChannelFactory<T extends Channel> implements ChannelFactory<T> {
         private final Class<? extends T> clazz;
 

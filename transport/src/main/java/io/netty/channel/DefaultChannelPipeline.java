@@ -27,14 +27,7 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -78,6 +71,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     /**
      * Set to {@code true} once the {@link AbstractChannel} is registered.Once set to {@code true} the value will never
      * change.
+     * 当Channel在EventLoop中注册成功后,ChannelPipeline也会记录Channel注册成功的信息，在设置地方进行设置
      */
     private boolean registered;
 
@@ -102,10 +96,23 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         tail.prev = head;
     }
 
+    /**
+     * 创建ChannelHandlerContext
+     * @param group
+     * @param name
+     * @param handler
+     * @return
+     */
     private AbstractChannelHandlerContext newContext(EventExecutorGroup group, String name, ChannelHandler handler) {
         return new DefaultChannelHandlerContext(this, childExecutor(group), name, handler);
     }
 
+
+    /**
+     * 根据EventExecutorGroup获取EventExecutor
+     * @param group
+     * @return
+     */
     private EventExecutor childExecutor(EventExecutorGroup group) {
         if (group == null) {
             return null;
@@ -191,7 +198,8 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     /**
-     * 添加ChannelHandler
+     * 添加ChannelHandler,在每一次添加的过程中，都会创建一个ChannelHandlerContext.
+     *
      * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
      *                 methods
      * @param name     the name of the handler to append
@@ -209,7 +217,11 @@ final class DefaultChannelPipeline implements ChannelPipeline {
             checkMultiplicity(handler);
 
             /**
+             *
              * 创建DefaultChannelHandlerContext,分析ChannelHandlerContext的过程。
+             * 在ServerBootstrap中在DefaultChannelPipeline中添加一个ChannelInitlizer。
+             * 该ChannelHandler就是ChannelInitlizer,ChannelHandler的名字和ChannelHanandlerContext的名字一样。
+             *
              */
             newCtx = newContext(group, name, handler);
 
@@ -224,11 +236,15 @@ final class DefaultChannelPipeline implements ChannelPipeline {
             if (executor == null) {
                 /**
                  *  当Channel未注册的时候,将ChannelContext添加到DefaultChannelPipeline中，
-                 *  一旦Channel注册成功，会在EventLoop中执行一个任务，而任务中具体执行的逻辑是{@link PendingHandlerAddedTask#callHandlerAdded0(AbstractChannelHandlerContext)}
+                 *  一旦Channel注册成功，会在EventLoop中执行ChannelHandler.handlerAdd()任务。
+                 *  而任务中具体执行的逻辑是{@link PendingHandlerAddedTask#callHandlerAdded0(AbstractChannelHandlerContext)}
+                 *  通过任务来最后调用callHandlerAdded0来实现 ctx.handler().handlerAdded(ctx);
+                 *  即ChannelHandler#handlerAdded(ctx)方法的执行。
                  */
                 addLast0(newCtx);
                 /**
-                 * 仔细分析这段代码
+                 * 仔细分析这段代码，在之后会对Handler进行回调处理,因此其底层对应着一个任务。
+                 * 当设置true时，就启动PendingHandlerAddedTask任务,为false就启动PendingHandlerRemovedTask任务
                  */
                 callHandlerCallbackLater(newCtx, true);
                 return this;
@@ -675,6 +691,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
      */
     private void callHandlerAdded0(final AbstractChannelHandlerContext ctx) {
         try {
+            //默认是一个空实现
             ctx.handler().handlerAdded(ctx);
         } catch (Throwable t) {
             boolean removed = false;
@@ -1210,6 +1227,8 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         // This must happen outside of the synchronized(...) block as otherwise handlerAdded(...) may be called while
         // holding the lock and so produce a deadlock if handlerAdded(...) will try to add another handler from outside
         // the EventLoop.
+
+        //分析如果在同步代码块中产生死锁的原因。
         PendingHandlerCallback task = pendingHandlerCallbackHead;
         while (task != null) {
             task.execute();
@@ -1218,7 +1237,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     /**
-     * 当Channel未注册是
+     * 当Channel未注册是，只是添加一个ChannelInitlizer时得到执行
      * @param ctx
      * @param added
      */
@@ -1240,8 +1259,15 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 检查当前Channel是否已经注册
+     * @param eventExecutor
+     * @return
+     */
     private EventExecutor executorSafe(EventExecutor eventExecutor) {
         if (eventExecutor == null) {
+            //这里说的handlerAdd是后面要设置的boolean变量值，callHandlerCallbackLater(ChannelHandlerContext ctx,boolean handlerAdd)
+
             // We check for channel().isRegistered and handlerAdded because even if isRegistered() is false we
             // can safely access the eventLoop() if handlerAdded is true. This is because in this case the Channel
             // was previously registered and so we can still access the old EventLoop to dispatch things.
@@ -1396,6 +1422,9 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 这是一个类似于链表存储的任务，通过当前任务可以获取到下一个任务。
+     */
     private abstract static class PendingHandlerCallback extends OneTimeTask {
         final AbstractChannelHandlerContext ctx;
         PendingHandlerCallback next;
@@ -1407,6 +1436,9 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         abstract void execute();
     }
 
+    /**
+     * 添加ChannelHandler任务
+     */
     private final class PendingHandlerAddedTask extends PendingHandlerCallback {
 
         PendingHandlerAddedTask(AbstractChannelHandlerContext ctx) {

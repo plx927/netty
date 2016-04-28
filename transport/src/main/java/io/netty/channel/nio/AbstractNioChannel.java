@@ -45,6 +45,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Abstract base class for {@link Channel} implementations which use a Selector based approach.
+ *
+ * 使用基于Selector(多路复用器)的方式来对Netty中的Channel进行实现。
+ *
  */
 public abstract class AbstractNioChannel extends AbstractChannel {
 
@@ -57,9 +60,18 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         CLOSED_CHANNEL_EXCEPTION.setStackTrace(EmptyArrays.EMPTY_STACK_TRACE);
     }
 
+
+    /**
+     * 维护JDK中的原生的SelectableChannel，可能是SocketChannel或者是ServerSocketChannel
+     */
     private final SelectableChannel ch;
+
+
     protected final int readInterestOp;
+
     volatile SelectionKey selectionKey;
+
+
     private volatile boolean inputShutdown;
     private volatile boolean readPending;
 
@@ -83,6 +95,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         this.ch = ch;
         this.readInterestOp = readInterestOp;
         try {
+            /**
+             * 设置Channel为非阻塞
+             */
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {

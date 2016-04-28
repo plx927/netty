@@ -87,6 +87,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
         unsafe = newUnsafe();
+        /**
+         * Channel底层使用的ChannelPipeline
+         */
         pipeline = new DefaultChannelPipeline(this);
     }
 
@@ -433,7 +436,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 register0(promise);
             } else {
                 try {
-                    //这里的Task会被添加到任务队列中来处理
+                    /**
+                     * 这里的Task会被添加到任务队列中来处理
+                     */
                     eventLoop.execute(new OneTimeTask() {
                         @Override
                         public void run() {

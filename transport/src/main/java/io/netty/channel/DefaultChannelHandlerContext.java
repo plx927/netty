@@ -21,6 +21,13 @@ final class DefaultChannelHandlerContext extends AbstractChannelHandlerContext {
 
     private final ChannelHandler handler;
 
+    /**
+     *
+     * @param pipeline
+     * @param executor
+     * @param name
+     * @param handler
+     */
     DefaultChannelHandlerContext(
             DefaultChannelPipeline pipeline, EventExecutor executor, String name, ChannelHandler handler) {
         super(pipeline, executor, name, isInbound(handler), isOutbound(handler));
