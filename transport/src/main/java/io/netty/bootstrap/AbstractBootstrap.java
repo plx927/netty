@@ -47,7 +47,9 @@ import java.util.Map;
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
 
+    //Boss线程池
     volatile EventLoopGroup group;
+
     private volatile ChannelFactory<? extends C> channelFactory;
     private volatile SocketAddress localAddress;
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
@@ -275,6 +277,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * @return
      */
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        /**
+         * 对Channel进行初始化以及注册
+         */
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
@@ -320,6 +325,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         //通过Channel工厂完成Channel的创建,基于反射。
         final Channel channel = channelFactory().newChannel();
         try {
+            /**
+             * 具体的初始化操作需要根据ServerSocketChannel和SocketChannel来分别处理
+             */
             init(channel);
         } catch (Throwable t) {
             channel.unsafe().closeForcibly();

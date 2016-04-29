@@ -343,6 +343,7 @@ ChannelInitalizer是一个特殊的ChannelInboundHandler，它提供了一个简
 ```
 
 
+#### ChannelFuture
 
 
 

@@ -82,6 +82,9 @@ public interface Channel extends AttributeMap, Comparable<Channel> {
     /**
      * Return the {@link EventLoop} this {@link Channel} was registered to.
      * 返回Channel所注册的EventLoop。
+     * 通过源码分析看到一开始的时候Channel的eventLoop是没有设置的，只有当Channel向eventloop中进行
+     * 注册的时候才会对Channel的eventloop进行设置。
+     * @see io.netty.channel.AbstractChannel.AbstractUnsafe#register(EventLoop, ChannelPromise)
      */
     EventLoop eventLoop();
 

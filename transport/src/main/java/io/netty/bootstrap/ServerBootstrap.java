@@ -170,7 +170,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
 
         /**
-         * 重要:获取到ChannelPipeline,具体实现为DefaultChannelPipeline
+         * 重要:获取到和当前Channel所绑定的ChannelPipeline,具体实现为DefaultChannelPipeline
+         * 可以参考{@link io.netty.channel.AbstractChannel#AbstractChannel(Channel)}方法
          */
         ChannelPipeline p = channel.pipeline();
 

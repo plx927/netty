@@ -97,7 +97,12 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     /**
-     * 创建ChannelHandlerContext
+     * 创建ChannelHandlerContext，一个ChannelHandlerContext包含了Netty中所有组件
+     * 1.ChanelHandler
+     * 2.EventLoopGroup
+     * 3.ChannelPipeline
+     * 4.Channel
+     *
      * @param group
      * @param name
      * @param handler
@@ -1237,7 +1242,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     /**
-     * 当Channel未注册是，只是添加一个ChannelInitlizer时得到执行
+     * 启动添加Handler的任务,对于HandlerContext添加到ChannelPipeline中也是基于一个任务来执行。
      * @param ctx
      * @param added
      */

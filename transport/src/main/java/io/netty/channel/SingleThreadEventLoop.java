@@ -50,9 +50,9 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
 
     /**
      * 将特定的Channel进行注册，这里的代码对看几遍
-     * @param channel
-     * @param promise
-     * @return
+     * @param channel Netty封装的Channel
+     * @param promise 异步注册的结果
+     * @return 异步注册的结果
      */
     @Override
     public ChannelFuture register(final Channel channel, final ChannelPromise promise) {
@@ -62,7 +62,9 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
         if (promise == null) {
             throw new NullPointerException("promise");
         }
-
+        /**
+         * 这里的注册调用了{@link io.netty.channel.AbstractChannel.AbstractUnsafe#register(EventLoop, ChannelPromise)}进行了骨架上的实现。
+         */
         channel.unsafe().register(this, promise);
         return promise;
     }

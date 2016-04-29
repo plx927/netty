@@ -33,6 +33,7 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NotYetConnectedException;
+import java.nio.channels.Selector;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -71,7 +72,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     private volatile EventLoop eventLoop;
 
-
+    //Channel是否注册的标志
     private volatile boolean registered;
 
     /** Cache for the string representation of this channel */
@@ -424,20 +425,28 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
-            //对Channel中的EventLoop中进行赋值
+            /**
+             * 设置Channel注册的EventLoop，之后Channel就可以获取其当前所在IO线程。
+             */
             AbstractChannel.this.eventLoop = eventLoop;
-
 
             /**
              * 这里的注册没有像自己写的SelectableChannle.register(Selector)如此简单，
-             * 而是将其作为一个任务来投放到SingleThreadEventLoop来进行处理
+             * 而是将其作为一个任务来投放到EventLoop中的IO线程来进行处理。
+             * 分析其原因在于{@link java.nio.channels.spi.AbstractSelectableChannel#register(Selector, int, Object)}方法底层在注册的过程中
+             * 是一个有锁的操作，当有大量的连接请求时，一个有锁操作势必会导致注册效率降低，从而导致客户端连接的速度下降甚至超时。
+             * 因此在Nio的框架中，对于Channel都注册都是采用异步处理。
+             * 回顾一下Cobar中间件的注册处理，在Acceptor接口到连接后，找到一个SubReacotr,将其投放到队列中去，然后就继续接受新的连接。
              */
+            //这里还对当前执行的线程与eventLoop中的IO线程进行判断
+            //如果发现执行注册操作的线程与eventLoop中的IO线程不是同一个，最后都是交给IO线程来处理。
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
                 try {
                     /**
                      * 这里的Task会被添加到任务队列中来处理
+                     * 在EventLoop中维护了对IO线程的管理
                      */
                     eventLoop.execute(new OneTimeTask() {
                         @Override
@@ -462,8 +471,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         /**
          * 这个方法具体会以一个任务的形式被添加到EventLoop的任务队列中
-         * 具体分析Netty是如何对JDK中的Channle进行注册处理
-         * @param promise
+         * 具体分析Netty是如何对JDK中的Channel进行注册处理
+         * @param promise 返回注册结果
          */
         private void register0(ChannelPromise promise) {
             try {
@@ -485,6 +494,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
                 /**
                  * 分析第一次的注册过程，在完成注册之前，将所的ChannelHandler添加到到PipeLine中。
+                 * 但是添加是基于Handler的处理是通过eventloop中的IO线程来进行处理。
                  */
                 if (firstRegistration) {
                     // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
