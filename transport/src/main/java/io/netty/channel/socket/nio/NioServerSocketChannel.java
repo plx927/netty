@@ -121,6 +121,12 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         return javaChannel().socket().getLocalSocketAddress();
     }
 
+    /**
+     * 通过ServerSocketChannel获取到Socket进行端口绑定,同时设置backLog值，
+     * 默认情况下，该值为128，取Linux下/proc/sys/net/core/somaxconn 文件中的值,在Windows下为200.
+     * @param localAddress
+     * @throws Exception
+     */
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
         javaChannel().socket().bind(localAddress, config.getBacklog());

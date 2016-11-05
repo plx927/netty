@@ -93,6 +93,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * The {@link Class} which is used to create {@link Channel} instances from.
      * You either use this or {@link #channelFactory(ChannelFactory)} if your
      * {@link Channel} implementation has no no-args constructor.
+     *
+     * 根据Class创建对应的Channel实例,其实底层最终是创建出ChannelFactory,在真正使用Channel的时候才创建出Channel。
      */
     public B channel(Class<? extends C> channelClass) {
         if (channelClass == null) {
@@ -322,7 +324,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * @return
      */
     final ChannelFuture initAndRegister() {
-        //通过Channel工厂完成Channel的创建,基于反射。
+        /*
+         * 通过Channel工厂完成Channel的创建,基于反射。
+         * 创建出NioServerSocketChannel,通过查看NioServerSocketChannel我们发现，此时
+         * 底层已经创建出了ServerSocketChannel，并且将其设置为非阻塞模式，同时创建了ChannelPipeline
+         * 因为每个Channel底层都维护这一个ChannelPipeline,可以查看AbstractNioChannel的构造方法。
+         */
         final Channel channel = channelFactory().newChannel();
         try {
             /**

@@ -42,6 +42,12 @@ import java.util.concurrent.TimeUnit;
 /**
  * {@link Bootstrap} sub-class which allows easy bootstrap of {@link ServerChannel}
  *
+ *
+ * `ServerBootstrap`是`Bootstrap`的一个子类，它可以让我们更加方便的引导一个`ServerChannel`的启动。
+ * 它继承了`AbstractBootstrap`,并且指定了泛型的类型变量,第一个类型变量为`ServerBootstrap`，
+ * 它的目的是在调用其方法的时候，返回的类型是其自身，这样可以实现`链式编程`。
+ * 第二个类型变量`ServerChannel`，表示其引导的Channel必须是`ServerChannel`的子类。
+ *
  */
 public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerChannel> {
 
@@ -49,6 +55,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
     private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> childAttrs = new LinkedHashMap<AttributeKey<?>, Object>();
+    //用于处理IO事件的线程池
     private volatile EventLoopGroup childGroup;
     private volatile ChannelHandler childHandler;
 
