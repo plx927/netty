@@ -41,7 +41,12 @@ public final class AttributeKey<T> extends UniqueName {
     @SuppressWarnings("unchecked")
     public static <T> AttributeKey<T> valueOf(String name) {
         checkNotNull(name, "name");
+        //通过在底层的ConcurrentMap中判断
         AttributeKey<T> option = names.get(name);
+        /*
+         * 当该Attribute不存在时,则将该Attribute添加到底层维护的Map中
+         * 用于记录当前总共出现了多少次相同的Key。
+         */
         if (option == null) {
             option = new AttributeKey<T>(name);
             AttributeKey<T> old = names.putIfAbsent(name, option);

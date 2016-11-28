@@ -96,4 +96,32 @@ public class DefaultAttributeMapTest {
         assertSame(2, attr2.get());
         assertSame(attr, attr2);
     }
+
+
+
+
+    @Test
+    public void testAttribute(){
+        AttributeKey<Integer> attr1 = AttributeKey.valueOf("hello");
+        AttributeKey<Integer> attr2 = AttributeKey.valueOf("world");
+        AttributeKey<Integer> attr3 = AttributeKey.valueOf("welcome");
+        AttributeKey<Integer> attr4 = AttributeKey.valueOf("Java");
+        AttributeKey<Integer> attr5 = AttributeKey.valueOf("GoLang");
+
+
+        System.out.println(attr1.name()+"---"+attr1.id());
+        System.out.println(attr2.name()+"---"+attr2.id());
+        System.out.println(attr3.name()+"---"+attr3.id());
+        System.out.println(attr4.name()+"---"+attr4.id());
+        System.out.println(attr4.name()+"---"+attr4.id());
+
+
+        System.out.println(1 & 0x11);
+        System.out.println(5 & 0x11);
+
+        DefaultAttributeMap attributeMap = new DefaultAttributeMap();
+        Attribute<Integer> attr = attributeMap.attr(attr1);
+
+
+    }
 }

@@ -39,7 +39,7 @@ import java.util.List;
  * represents the length of "HELLO, WORLD".  By default, the decoder assumes
  * that the length field represents the number of the bytes that follows the
  * length field.  Therefore, it can be decoded with the simplistic parameter
- * combination.
+ * combination.  （在默认的情况下,decoder假设字段长度表示头字段以后所有的字节数）
  * <pre>
  * <b>lengthFieldOffset</b>   = <b>0</b>
  * <b>lengthFieldLength</b>   = <b>2</b>
@@ -187,7 +187,14 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
     private final int maxFrameLength;
     private final int lengthFieldOffset;
     private final int lengthFieldLength;
+
+    /*
+     *  lengthFieldOffset+lengthFieldLength=lengthFieldEndOffset
+     *  长度字段的结尾位置
+     */
     private final int lengthFieldEndOffset;
+
+
     private final int lengthAdjustment;
     private final int initialBytesToStrip;
     private final boolean failFast;
@@ -365,28 +372,38 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
             failIfNecessary(false);
         }
 
+        //当可读的字节数小于长度字段的偏移量,则直接返回,因为此时肯定数据包还未满
         if (in.readableBytes() < lengthFieldEndOffset) {
             return null;
         }
-
+        //通过读指针+长度字段的偏移位置,计算出真正的长度字段偏移量
         int actualLengthFieldOffset = in.readerIndex() + lengthFieldOffset;
+        //计算出数据包的长度,默认使用大端序
         long frameLength = getUnadjustedFrameLength(in, actualLengthFieldOffset, lengthFieldLength, byteOrder);
 
+        //通过读取长度字段,计算出一个数据包的大小,当数据包大小小于0,则直接抛出异常
         if (frameLength < 0) {
+            //跳过前面的长度字段
             in.skipBytes(lengthFieldEndOffset);
             throw new CorruptedFrameException(
                     "negative pre-adjustment length field: " + frameLength);
         }
-
+        /*
+         * 当长度字段与包体之间还有其他字段时，则在长度字段的基础上加上这些中间字段的长度
+         * 计算的总结果是整个数据包的长度
+         */
         frameLength += lengthAdjustment + lengthFieldEndOffset;
 
+        /*
+         * 检测整个数据包的长度与长度字段的结束位置进行比较
+         */
         if (frameLength < lengthFieldEndOffset) {
             in.skipBytes(lengthFieldEndOffset);
             throw new CorruptedFrameException(
                     "Adjusted frame length (" + frameLength + ") is less " +
                     "than lengthFieldEndOffset: " + lengthFieldEndOffset);
         }
-
+        //当整个数据包的长度大于给定的最大数据包长度
         if (frameLength > maxFrameLength) {
             long discard = frameLength - in.readableBytes();
             tooLongFrameLength = frameLength;
@@ -406,10 +423,11 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
         // never overflows because it's less than maxFrameLength
         int frameLengthInt = (int) frameLength;
+        //数据实际收到的包的长度小于理论计算包的长度
         if (in.readableBytes() < frameLengthInt) {
             return null;
         }
-
+        //判断需要截取的长度与实际数据包大小的长度
         if (initialBytesToStrip > frameLengthInt) {
             in.skipBytes(frameLengthInt);
             throw new CorruptedFrameException(
@@ -420,8 +438,11 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
         // extract frame
         int readerIndex = in.readerIndex();
+        //通过整个数据包的长度减去需要截取的部分,就是用于需要的整个有效数据包
         int actualFrameLength = frameLengthInt - initialBytesToStrip;
+        //在原来的ByteBuf中截取需要的部分,返回的是一个新的ByteBuf,并且将原来的ByteBuf进行一次引用计数
         ByteBuf frame = extractFrame(ctx, in, readerIndex, actualFrameLength);
+        //修改原来的ByteBuf的读指针位置
         in.readerIndex(readerIndex + actualFrameLength);
         return frame;
     }
@@ -437,6 +458,7 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
     protected long getUnadjustedFrameLength(ByteBuf buf, int offset, int length, ByteOrder order) {
         buf = buf.order(order);
         long frameLength;
+        //判断长度字段占用的字节数,先读取长度字段
         switch (length) {
         case 1:
             frameLength = buf.getUnsignedByte(offset);

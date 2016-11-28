@@ -282,8 +282,15 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap impleme
         }
 
         final AbstractChannelHandlerContext next = findContextInbound();
+        //获取当前执行的线程,线程是由EventExecutor底层所封装
         EventExecutor executor = next.executor();
+
+        /*
+         * 判断当前执行的线程与下一个ctx所在的线程是否相同
+         * 在绝大多数情况下，下一个ctx所在的线程都与当前所执行的线程是同一个
+         */
         if (executor.inEventLoop()) {
+            //调用下一个InboundChannelHandler来执行read方法。
             next.invokeChannelRead(msg);
         } else {
             executor.execute(new OneTimeTask() {
@@ -805,7 +812,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap impleme
     }
 
     /**
-     * 根据当前的ChannelHandlerContext找到它的下一个。
+     * 根据当前的ChannelHandlerContext找到它的下一个<b>ChannelInBoundHandler</b>的ctx
      * @return
      */
     private AbstractChannelHandlerContext findContextInbound() {

@@ -135,7 +135,7 @@ import java.lang.annotation.Target;
  *     ...
  * }
  * </pre>
- * Now that the state of the handler isattached to the {@link ChannelHandlerContext}, you can add the
+ * Now that the state of the handler is attached to the {@link ChannelHandlerContext}, you can add the
  * same handler instance to different pipelines:
  * <pre>
  * public class DataServerInitializer extends {@link ChannelInitializer}&lt;{@link Channel}&gt; {
