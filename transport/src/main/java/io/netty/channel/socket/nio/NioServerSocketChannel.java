@@ -150,6 +150,8 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
         try {
             if (ch != null) {
+                //ServerSocketChannel将接受到SocketChannel进行一次包装,包装成NioSocketChannel
+                //然后由ChannelPipeline开始触发读事件(fireChannelRead),一层层传递到ChannelHandler中
                 buf.add(new NioSocketChannel(this, ch));
                 return 1;
             }

@@ -264,8 +264,13 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+
+            //这里的Channel为Acceptor接受到客户端的连接
+            //只是在Netty中没有直接使用SocketChannel,而是使用了NioSocketChannel
             final Channel child = (Channel) msg;
 
+            //将我们指定的childHandler添加到接受到的Channel的pipeline中
+            //通常都是我们所写的ChannelInitializer。
             child.pipeline().addLast(childHandler);
 
             for (Entry<ChannelOption<?>, Object> e: childOptions) {
@@ -283,6 +288,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
 
             try {
+                //在将childHandler往Channel的pipeline中添加完成后,就将Channel往Sub线程池中进行注册
+                //但是通过查看底层源码发现,其实本质上还是将Channel往Selector中注册,并且是异步注册
+                //因为当前所在的线程为parentGroup中的线程,而底层会交给childGroup中的线程进行处理
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

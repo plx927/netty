@@ -47,6 +47,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link SingleThreadEventLoop} implementation which register the {@link Channel}'s to a
  * {@link Selector} and so does the multi-plexing of these in the event loop.
  *
+ *  NioEventLoop是SingleThreadLoop的实现，它是基于单线程事件循环处理方式。
+ *  其功能用于完成Channel到Selector的注册操作,以及在事件循环中完成多路复用。
+ *
  */
 public final class NioEventLoop extends SingleThreadEventLoop {
 
@@ -308,7 +311,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     /**
      * NioEventLoop执行多路复用器的代码
      * 调式该方法，发现一直在执行。
-     * 最终版本的4.36和这个版本存在不一样。
+     * 最终版本的4.36和这个版本存在不一样，使用了策略模式进行轮询处理。
      *
      * 在SingleThreadEventLoop通过启动线程完成逻辑的处理。
      * 在逻辑的处理过程中会去轮询任务队列进行处理。
@@ -321,6 +324,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             boolean oldWakenUp = wakenUp.getAndSet(false);
             try {
                 //从任务队列中获取任务，如果发现当前有任务,则直接执行Selector.selectNow()操作
+                //从正常的理解来看,如果有任务,应该直接处理任务,但是在这里执行了一次
                 if (hasTasks()) {
                     selectNow();
                 } else {

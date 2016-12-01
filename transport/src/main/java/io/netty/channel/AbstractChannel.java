@@ -427,6 +427,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             /**
              * 设置Channel注册的EventLoop，之后Channel就可以获取其当前所在IO线程。
+             * Netty中的每一个Channel底层都会维护着一个EventLoop，参考AbstractChannel。
+             * 在NioSocketChannel一开始创建的时候，其EventLoop是null，它是通过外面传递进来赋值。
              */
             AbstractChannel.this.eventLoop = eventLoop;
 
@@ -505,8 +507,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 safeSetSuccess(promise);
 
                 /*
-                 * 通过ChannelPipeLine触发Channel注册成功的事件,此时可以先触发ChannelPipeline中的ChannelInitlizer，
-                 * 通过ChannelInitlizer的init方法可以在ServerBootstrapAcceptor中添加注册方法进行测试。
+                 * 通过ChannelPipeLine触发Channel注册成功的事件,此时可以先触发ChannelPipeline中的Channel，
+                 * 通过ChannelInitializer的init方法可以在ServerBootstrapAcceptor中添加注册方法进行测试。
                  */
                 pipeline.fireChannelRegistered();
 

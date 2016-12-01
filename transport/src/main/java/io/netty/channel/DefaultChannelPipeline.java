@@ -237,7 +237,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
 
-            //当Channel未注册的过程处理,即在ChannelPipeline添加ChannelInitlizer
+            //当Channel未注册的过程处理,即在ChannelPipeline添加ChannelInitializerHandler
             if (executor == null) {
                 /**
                  *  当Channel未注册的时候,将ChannelContext添加到DefaultChannelPipeline中，
